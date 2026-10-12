@@ -20,7 +20,7 @@
 
 源码行为回归覆盖输入校验、认证/Origin 拒绝、会话隔离、串行队列、撤权/取消、元素陈旧、缩放和错误返回。真实 Electron 验收使用本任务窗口与临时 Profile，检查 Browser Use 的观察/截图/点击/输入/导航，检查 Computer Use 的权限及原生输入闭环。安装包资源和真实 Harness 后端、客户端发现/引导/UI 挂载分别验证。
 
-macOS 本机验收不能替代 Windows 原生验收；Windows 包必须在 Windows runner 通过相同真实浏览器/输入 smoke，再分发。macOS 未授权时必须展示权限引导，不把权限缺失包装成成功。
+macOS 本机验收不能替代 Windows 原生验收；正式 Windows 分发必须在 Windows runner 通过相同真实浏览器/输入 smoke，再分发。用户明确要求先提供安装包自行验收时，可使用 windows-acceptance workflow：保留原生目标、完整回归、打包与原生模块门禁，安装后 GUI/input 验收标记为 pending，禁止创建正式 Release。macOS 未授权时必须展示权限引导，不把权限缺失包装成成功。
 
 ## 底层接口依据
 
