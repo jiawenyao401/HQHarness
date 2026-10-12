@@ -1,6 +1,9 @@
 name: HQHarness Windows acceptance installer
 
 on:
+  push:
+    branches:
+      - codex/hqharness-automation
   workflow_dispatch:
 
 permissions:
