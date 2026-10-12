@@ -1,0 +1,23 @@
+{
+  "productName": "HQHarness",
+  "developmentProductName": "HQHarness Dev",
+  "packageName": "hqharness",
+  "appId": "app.hqharness.desktop",
+  "developmentAppId": "app.hqharness.desktop.dev",
+  "userDataDirectory": "hqharness",
+  "developmentUserDataDirectory": "hqharness-dev",
+  "updateBaseUrl": null,
+  "desktopServiceUrl": null,
+  "supportUrl": null,
+  "publisherName": null,
+  "colors": {
+    "ink": "#13283F",
+    "accent": "#14B8A6",
+    "accentDark": "#0F766E"
+  },
+  "upstream": {
+    "repository": "https://github.com/dataelement/dsh-desktop",
+    "commit": "115a0b474cc2c4794316171c640a8898398591fe"
+  },
+  "releaseRepository": null
+}

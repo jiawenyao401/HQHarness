@@ -1,0 +1,19 @@
+diff --git a/node_modules/@ubjs/node/typescript/dist/resolve-lib.js b/node_modules/@ubjs/node/typescript/dist/resolve-lib.js
+index e8837bb..1744817 100644
+--- a/node_modules/@ubjs/node/typescript/dist/resolve-lib.js
++++ b/node_modules/@ubjs/node/typescript/dist/resolve-lib.js
+@@ -156,7 +156,13 @@ function resolveNpmPackage(crateName, callerUrl, npmPackageBase, tripleStyle) {
+             cause,
+         });
+     }
+-    const binaryPath = (0, node_path_1.join)((0, node_path_1.dirname)(pkgJsonPath), libFileName(crateName, process.platform));
++    const virtualPath = (0, node_path_1.join)((0, node_path_1.dirname)(pkgJsonPath), libFileName(crateName, process.platform));
++    // Electron's fs can read ASAR entries, but the native SDK uses dlopen,
++    // which requires the actual asarUnpack file on disk (also for its sibling
++    // copy-mode N-API runtime). Normal Node/package resolution stays intact.
++    const binaryPath = process.versions.electron
++        ? virtualPath.replace(/\.asar([\\/])/u, '.asar.unpacked$1')
++        : virtualPath;
+     if (!(0, node_fs_1.existsSync)(binaryPath)) {
+         throw new ResolveLibPathError({
+             message: `Platform package "${pkgName}" is installed but does not contain ` +
