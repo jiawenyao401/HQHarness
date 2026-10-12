@@ -36,6 +36,8 @@ jobs:
           if ($disk.Free -lt 12GB) { throw 'Insufficient disk space for the 12 GiB task build budget.' }
       - run: npm ci
       - run: npm run typecheck
+      - name: Check Git Bash signing fixture path compatibility
+        run: npx --no-install vitest run test/signed-test-build.test.ts
       - name: Run all regression tests
         run: npm test -- --maxWorkers=4
       - name: Qualify actual Windows Electron and Cua native binaries

@@ -147,7 +147,7 @@ print('signed test build behavior passed')
         return () => execFileSync('bash', ['-c', step.run ?? ''], {
           encoding: 'utf8',
           env: {
-            ...process.env, WINDOWS_SIGNING_WORK_DIR: directory,
+            ...process.env, WINDOWS_SIGNING_WORK_DIR: directory.replaceAll('\\', '/'),
             // This Linux signing step is exercised via Git Bash on Windows.
             // GNU tar otherwise interprets the C: fixture path as a remote host.
             ...(process.platform === 'win32' ? { TAR_OPTIONS: '--force-local' } : {})
