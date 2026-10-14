@@ -1,0 +1,44 @@
+name: Transfer verified HQHarness 0.1.3 installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 38536308792
+          name: hqharness-windows-x64-acceptance
+          path: verified-installer
+      - name: Verify original native build identity without rebuilding
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('verified-installer')
+          metadata = json.loads((root / 'windows-acceptance.json').read_text(encoding='utf-8-sig'))
+          assert metadata['version'] == '0.1.3'
+          assert metadata['automationVersion'] == '0.1.1'
+          assert metadata['source'] == 'e0e9069b68d756b79d7ba5bee28fa5bc22d9a2ce'
+          assert metadata['actualAgentToolExecution'] == 'passed'
+          installer = root / 'hqharness-0.1.3-win-x64-acceptance.exe'
+          assert hashlib.file_digest(installer.open('rb'), 'sha256').hexdigest() == metadata['sha256']
+          assert installer.open('rb').read(2) == b'MZ'
+          print('Original Windows installer identity and SHA256 verified')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hqharness-windows-x64-acceptance-transfer
+          retention-days: 14
+          if-no-files-found: error
+          path: verified-installer/*
+
+# Transport only. The native Windows build and source identity remain unchanged;
+# this job never builds an installer, creates a Release or changes application code.
