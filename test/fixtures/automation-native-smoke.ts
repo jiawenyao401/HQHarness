@@ -1,9 +1,15 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, dialog } from 'electron'
 import { createServer } from 'node:http'
+import { spawn } from 'node:child_process'
+import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { BrowserAutomation } from '../../src/main/automation/browser'
 import { ComputerAutomation } from '../../src/main/automation/computer'
+import { DesktopAutomationService } from '../../src/main/automation/service'
+import { buildHarnessSpawnOptions } from '../../src/main/runtime/harness-runtime'
 import type { AutomationOperation, AutomationResult } from '../../src/shared/automation'
 
 async function run(): Promise<void> {
@@ -80,6 +86,43 @@ async function run(): Promise<void> {
       assert.equal(value, 'Native 中文 🐎')
       await assert.rejects(computer.execute('smoke', { action: 'key', key: 'ENTER', snapshot: 'stale', display: String(frame.display) }, signal), /Observe/)
       console.log('COMPUTER PASS: real desktop capture, snapshot-coordinate native click, native shortcut/Unicode input, stale snapshot refusal')
+      const bridge = new DesktopAutomationService(() => window, () => 'en')
+      const home = await mkdtemp(path.join(tmpdir(), 'hq-owned-agent-smoke-'))
+      const originalDialog = dialog.showMessageBox
+      let consents = 0
+      // Test-only deterministic consent. Production always uses the native dialog.
+      dialog.showMessageBox = (async () => { consents++; return { response: 1, checkboxChecked: false } }) as typeof dialog.showMessageBox
+      try {
+        await bridge.start()
+        const dshHome = path.join(home, 'harness')
+        await mkdir(dshHome)
+        const root = process.cwd()
+        const args = ['--expose-internals', path.join(root, 'build/harness-node-entry.mjs'), path.join(root, 'test/fixtures/automation-agent-smoke.mjs'), root, url]
+        const options = buildHarnessSpawnOptions(home, dshHome, process.platform, { ...process.env, ...bridge.environment() })
+        // The CLI test launcher supplies its Node runtime explicitly; packaged
+        // qualification separately exercises the actual Electron Node runtime.
+        const nodeExecutable = process.env.HQ_AUTOMATION_NODE_EXECUTABLE
+        assert(nodeExecutable && path.isAbsolute(nodeExecutable))
+        const child = spawn(nodeExecutable, args, options)
+        let stdout = ''; let stderr = ''
+        child.stdout?.on('data', chunk => { stdout += chunk })
+        child.stderr?.on('data', chunk => { stderr += chunk })
+        const timeout = setTimeout(() => child.kill(), 30_000)
+        try {
+          const code = await new Promise<number | null>((resolve, reject) => { child.once('exit', resolve); child.once('error', reject) })
+          assert.equal(code, 0, stderr || stdout)
+          assert.equal(consents, 2, 'Both real tools must reach the session consent gate: ' + (stderr || stdout))
+          assert.equal(bridge.status().activeSessions, 2)
+          const target = BrowserWindow.getAllWindows().find(item => item.id !== window.id && item.webContents.getURL() === url)
+          assert(target)
+          assert.equal(await target.webContents.executeJavaScript('document.querySelector("#value").value'), 'Agent browser 中文 🐎 + Agent native 中文 🐎')
+          console.log('OWNED TOOL PASS: actual Harness child/session, production environment injection/auth, session consent gate, durable test PNG, browser typing and computer native input')
+        } finally { clearTimeout(timeout) }
+      } finally {
+        dialog.showMessageBox = originalDialog
+        await bridge.close()
+        await rm(home, { recursive: true, force: true })
+      }
     }
   } finally {
     browser.stop(); await computer.close()

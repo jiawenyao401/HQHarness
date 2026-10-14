@@ -40,12 +40,12 @@ jobs:
         run: npx --no-install vitest run test/signed-test-build.test.ts
       - name: Run all regression tests
         run: npm test -- --maxWorkers=4
-      - name: Qualify actual Windows Electron and Cua native binaries
+      - name: Qualify Windows native binaries and real Agent tool execution
         run: node scripts/automation-native-package-smoke.mjs
       - name: Build unsigned acceptance installer on Windows
         shell: pwsh
         run: npm run package:win -- '--config.nsis.artifactName=hqharness-${version}-${os}-${arch}-acceptance.${ext}'
-      - name: Verify SDK from the actual packaged dependency closure
+      - name: Verify SDK and real Agent tools from the actual packaged dependency closure
         shell: pwsh
         run: node scripts/automation-native-package-smoke.mjs 'dist/win-unpacked/HQHarness.exe' 'dist/win-unpacked/resources/app.asar'
       - name: Record exact artifact identity and outstanding manual acceptance
@@ -56,9 +56,13 @@ jobs:
           $installer = $installer[0]
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           $manifest = Get-Content package.json -Raw | ConvertFrom-Json
+          $automation = Get-Content packages/hqharness-automation/package.json -Raw | ConvertFrom-Json
           [ordered]@{
             version = $manifest.version
             source = '${{ github.sha }}'
+            automationVersion = $automation.version
+            actualAgentToolExecution = 'passed'
+            losslessScreenshotOutput = 'passed'
             file = $installer.Name
             sha256 = $hash.Hash.ToLowerInvariant()
             signed = $false

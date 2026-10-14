@@ -46,8 +46,10 @@ export function createAutomationPlugin(capability, request = callDesktop) {
       ] },
       presentCall: args => ({ card: 'generic', kind: ['status', 'observe', 'tabs'].includes(args.action) ? 'read' : 'execute', title: `${browser ? 'Browser Use' : 'Computer Use'} · ${args.action}` }),
       async execute(args, exec) {
-        const owner = exec.agent?.sessionId
-        if (!owner) throw new Error(`${toolName} requires an owning Agent session`)
+        // The published Agent handle owns a Session, not a sessionId field.
+        // Use its durable identity for grants, tabs and screenshot isolation.
+        const owner = exec.agent?.session?.header?.id
+        if (typeof owner !== 'string' || !owner) throw new Error(`${toolName} requires an owning Agent session`)
         exec.signal?.throwIfAborted()
         const operation = { ...args }
         const prior = frames.get(owner)
@@ -62,7 +64,10 @@ export function createAutomationPlugin(capability, request = callDesktop) {
           exec.signal?.throwIfAborted()
           if (!result.snapshot || !result.coordinates?.width || !result.coordinates?.height) throw new Error('Desktop returned an incomplete screenshot coordinate space')
           frames.set(owner, { snapshot: result.snapshot, width: image.width, height: image.height, sourceWidth: result.coordinates.width, sourceHeight: result.coordinates.height })
-          return { ...result, image, coordinate_width: image.width, coordinate_height: image.height, coordinates: undefined }
+          // ToolRuntime validates lossless JSON: omit the source coordinate
+          // field instead of publishing an explicit undefined property.
+          const { coordinates: _sourceCoordinates, ...observed } = result
+          return { ...observed, image, coordinate_width: image.width, coordinate_height: image.height }
         }
         if (result.snapshot && result.coordinates) frames.set(owner, { snapshot: result.snapshot, width: result.coordinates.width, height: result.coordinates.height, sourceWidth: result.coordinates.width, sourceHeight: result.coordinates.height })
         return { ...result, ...(result.coordinates ? { coordinate_width: result.coordinates.width, coordinate_height: result.coordinates.height } : {}) }

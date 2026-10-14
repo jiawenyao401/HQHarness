@@ -7,6 +7,58 @@ const { readFileSync } = require('node:fs')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const assert = require('node:assert/strict')
+const { createServer } = require('node:http')
+const { randomBytes } = require('node:crypto')
+const { mkdtemp, realpath, writeFile, rm } = require('node:fs/promises')
+const { tmpdir } = require('node:os')
+async function qualifyOwnedTools(appRoot) {
+  const home = await realpath(await mkdtemp(join(tmpdir(), 'hq-packaged-agent-')))
+  const moduleUrl = name => pathToFileURL(join(appRoot, 'node_modules', name, 'lib/index.js')).href
+  const token = randomBytes(32).toString('hex')
+  const calls = []
+  const server = createServer(async (req, res) => {
+    assert.equal(req.headers.authorization, 'Bearer ' + token)
+    let body = ''; for await (const chunk of req) body += chunk
+    const input = JSON.parse(body)
+    calls.push(input)
+    res.setHeader('content-type', 'application/json')
+    res.end(JSON.stringify(input.operation.action === 'observe' ? { snapshot: 'test-frame', coordinates: { width: 1000, height: 600 }, image: { png: 'AA==' } } : { available: true }))
+  })
+  let ctx
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+    process.env.HQHARNESS_AUTOMATION_URL = 'http://127.0.0.1:' + server.address().port + '/operation'
+    process.env.HQHARNESS_AUTOMATION_TOKEN = token
+    process.env.DSH_HOME = home
+    const config = join(home, 'cordis.yml')
+    await writeFile(config, JSON.stringify([
+      ...['dsh-system-prompt', 'dsh-tools', 'dsh-session-projection', 'dsh-session', 'dsh-agent', 'dsh-llm', 'dsh-agent-loop'].map(name => ({ id: name, name: moduleUrl('@deepseek-ai/' + name) })),
+      { id: 'automation', name: pathToFileURL(join(appRoot, 'node_modules/hqharness-automation/index.js')).href }
+    ]))
+    const { boot } = await import(moduleUrl('@deepseek-ai/dsh-app-boot'))
+    ctx = await boot('packaged-automation-qualification', config, [], ctx => {
+      ctx.provide('attachments', { async saveImage() { return { attachmentId: 'test-frame', mediaType: 'image/png', width: 500, height: 300, bytes: 1 } } })
+    })
+    const agent = await ctx.agentLoop.create('session-packaged-automation')
+    assert.equal(agent.session.header.id, 'session-packaged-automation')
+    for (const name of ['browser_use', 'computer_use']) {
+      const result = await ctx.tools.execute({ callId: name, name, arguments: { action: 'status' }, agent, signal: new AbortController().signal })
+      assert.equal(result.isError, false, JSON.stringify(result.content))
+      assert.deepEqual(result.value, { available: true })
+      const observed = await ctx.tools.execute({ callId: name + '-frame', name, arguments: { action: 'observe' }, agent, signal: new AbortController().signal })
+      assert.equal(observed.isError, false, JSON.stringify(observed.content))
+      assert.equal(observed.value.coordinate_width, 500)
+      assert(!Object.hasOwn(observed.value, 'coordinates'))
+    }
+    assert.deepEqual(calls.map(call => call.owner), Array(4).fill('session-packaged-automation'))
+    console.log('PACKAGED_OWNED_TOOLS_PASS: actual packaged Agent, ToolRuntime, automation module, authenticated test bridge and lossless screenshot results')
+  } finally {
+    await ctx?.fiber.dispose()
+    server.closeAllConnections()
+    await new Promise(resolve => server.close(resolve))
+    await rm(home, { recursive: true, force: true })
+  }
+}
 async function run() {
   const appRoot = process.argv[1]
   const folder = join(appRoot, 'node_modules', '@trycua', 'cua-driver')
@@ -26,6 +78,7 @@ async function run() {
     await driver.shutdown()
     if ('uniffiDestroy' in driver && typeof driver.uniffiDestroy === 'function') driver.uniffiDestroy()
   }
+  await qualifyOwnedTools(appRoot)
 }
 run().catch(error => { console.error(error); process.exitCode = 1 })
 `

@@ -12,6 +12,10 @@
 
 第一次执行需要会话范围的原生授权；授权不跨应用重启，停止入口和紧急快捷键立即撤销全部授权并关闭受控浏览器。队列串行化本机输入，取消与撤权在副作用前再次检查。截图和页面内容属于不可信数据；工具提示要求危险提交遵循用户确认，不提供绕过系统权限或 UAC 的能力。
 
+工具执行以真实 Agent 的 `session.header.id` 作为授权、浏览器和截图映射的共同 owner；Agent 没有 `sessionId` 字段。缺少有效 Session 时拒绝执行，不用任意 agent ID 或全局共享 key 代替。截图结果必须遵守 ToolRuntime 的无损 JSON 契约：删去源坐标字段，而非返回 `coordinates: undefined`。0.1.3 修复这两处实际执行阻塞，内置插件版本为 0.1.1。
+
+`HQHARNESS_AUTOMATION_TOKEN` 仅注入 Harness 进程，工具直接在该进程内访问桌面桥。上游 subprocess 的 `KEY|PASSWORD|SECRET|TOKEN` 环境过滤会使普通 shell 读不到它，这是预期的凭据隔离，不能因此放宽鉴权或向 shell 转发 token。Windows PowerShell 的受限启动故障属于 subprocess/sandbox 链路；两个内置自动化工具不依赖 PowerShell。
+
 浏览器使用独立 cookie/session 分区，不读取系统浏览器 Profile，不携带 HQHarness 窗口 preload。仅加载 HTTP/HTTPS；摄像头、麦克风、文件、设备等页面权限默认拒绝。页面访问失败、陈旧元素引用、权限拒绝、取消和窗口关闭均保留明确错误。
 
 桌面操作坐标来自最近截图，携带 display ID 和 snapshot ID；按实际缩略图尺寸映射回 Cua 原生截图像素，包含 Retina/Windows DPI，不能用 Electron DIP 代替。Cua 0.28 的可移植 desktop target 仅支持 `primary`：客户端、工具说明和错误返回均明确主显示器限制，其他显示器请求拒绝执行。拓扑变化、截图超过 90 秒或消费过的 snapshot 必须重新观察；捕获过程中拓扑变化也不能发布有效截图。每次输入后重新观察实际结果，驱动部分执行/疑似无效的返回不得报告成功。
@@ -19,6 +23,8 @@
 ## 验收
 
 源码行为回归覆盖输入校验、认证/Origin 拒绝、会话隔离、串行队列、撤权/取消、元素陈旧、缩放和错误返回。真实 Electron 验收使用本任务窗口与临时 Profile，检查 Browser Use 的观察/截图/点击/输入/导航，检查 Computer Use 的权限及原生输入闭环。安装包资源和真实 Harness 后端、客户端发现/引导/UI 挂载分别验证。
+
+执行回归必须从真实 AgentLoop 创建会话，经 ToolRuntime 执行两个工具；同时验证截图输出、不同会话 owner 与授权拒绝，不能仅注册工具或构造不存在的 Agent 字段。原生 smoke 补充真实 Harness 测试子进程、生产环境构造函数、桌面桥和实际目标窗口文字验证（仅授权弹窗与 attachment 测试存储使用确定性 fixture）。安装包 smoke 从实际 app.asar 导入 Agent、ToolRuntime 与自动化插件，验证带鉴权请求和截图 JSON 返回；它不替代 Windows 安装后 GUI/input 验收。
 
 macOS 本机验收不能替代 Windows 原生验收；正式 Windows 分发必须在 Windows runner 通过相同真实浏览器/输入 smoke，再分发。用户明确要求先提供安装包自行验收时，可使用 windows-acceptance workflow：保留原生目标、完整回归、打包与原生模块门禁，安装后 GUI/input 验收标记为 pending，禁止创建正式 Release。macOS 未授权时必须展示权限引导，不把权限缺失包装成成功。
 

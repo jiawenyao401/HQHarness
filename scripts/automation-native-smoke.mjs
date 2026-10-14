@@ -11,7 +11,7 @@ await mkdir(path.dirname(output), { recursive: true })
 await build({ entryPoints: [path.join(root, 'test/fixtures/automation-native-smoke.ts')], outfile: output, bundle: true, platform: 'node', format: 'cjs', external: ['electron', '@trycua/cua-driver'] })
 const profile = await mkdtemp(path.join(tmpdir(), 'hq-automation-smoke-'))
 const electron = process.platform === 'darwin' ? path.join(root, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron') : path.join(root, 'node_modules/electron/dist/electron.exe')
-const env = { ...process.env }
+const env = { ...process.env, HQ_AUTOMATION_NODE_EXECUTABLE: process.execPath }
 delete env.ELECTRON_RUN_AS_NODE
 const child = spawn(electron, [output, `--user-data-dir=${profile}`, '--force-renderer-accessibility'], { env, stdio: 'inherit', windowsHide: false })
 const timer = setTimeout(() => child.kill(), 90_000)
