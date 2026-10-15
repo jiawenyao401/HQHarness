@@ -48,6 +48,9 @@
     - id: hqharness-automation
       name: hqharness-automation
 
+    - id: hqharness-model-access
+      name: hqharness-model-access
+
     # DSH PPT owns one direct PPTD workflow and one standard Composer client.
     # The package contains no Tencent editor runtime or SlideP route.
     - id: dsh-ppt-composer

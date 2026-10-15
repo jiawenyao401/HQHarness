@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AvailableRelease, UpdateStatus } from '../shared/contracts'
 import { PRODUCT_NAME } from '../shared/brand'
+import { phoneIcon, updateIcon } from '../../.build/brand/ui-icons'
 import { setupDesktopStoragePersistence } from './desktop-storage'
 import {
   isUpdateDismissed,
@@ -172,6 +173,15 @@ contextBridge.exposeInMainWorld('hqDesktopAutomation', {
   status: () => ipcRenderer.invoke('hq:automation:status'),
   permissions: () => ipcRenderer.invoke('hq:automation:permissions'),
   stop: () => ipcRenderer.invoke('hq:automation:stop')
+})
+
+contextBridge.exposeInMainWorld('hqTeamModelAccess', {
+  status: () => ipcRenderer.invoke('hq:model-access:status'),
+  configure: (configuration: unknown) => ipcRenderer.invoke('hq:model-access:configure', configuration),
+  login: (credentials: unknown) => ipcRenderer.invoke('hq:model-access:login', credentials),
+  claim: () => ipcRenderer.invoke('hq:model-access:claim'),
+  refresh: () => ipcRenderer.invoke('hq:model-access:refresh'),
+  logout: () => ipcRenderer.invoke('hq:model-access:logout')
 })
 
 contextBridge.exposeInMainWorld(
@@ -1181,10 +1191,6 @@ const styles = `
     .progressValue { transition: none; }
   }
 `
-
-const updateIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true"><path d="M4.6 12a7.4 7.4 0 0 1 12.6-5.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M19.4 12a7.4 7.4 0 0 1-12.6 5.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M17.6 3.5v3.4h-3.4M6.4 20.5v-3.4h3.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-
-const phoneIcon = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true"><rect x="7" y="2.75" width="10" height="18.5" rx="2.25" stroke="currentColor" stroke-width="1.7"/><path d="M10.2 5.5h3.6M10.5 18.35h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`
 
 /**
  * The wide-sidebar button mirrors the settings trigger next to it: the same

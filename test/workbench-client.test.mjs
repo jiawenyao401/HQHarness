@@ -1942,8 +1942,7 @@ describe('workbench market screenshot and metadata display', () => {
   it('uses one compact grip per Workbench and keeps selection rows non-draggable', () => {
     expect(fullSource).toContain("pinned.length > 1 && h('button', { type: 'button', role: 'menuitem', className: 'dshWbModeDragHandle', draggable: !disabled")
     expect(fullSource).toContain("h(MarketIcon, { name: 'gripVertical', size: 16 })")
-    expect(fullSource).toContain("if (name === 'gripVertical') return h('svg', common")
-    expect(fullSource).toContain("h('circle', { cx: 9, cy: 7, r: 1, fill: 'currentColor', stroke: 'none' })")
+    expect(fullSource).toContain('"gripVertical": ui.IconGripVerticalOutlineMedium')
     expect(fullSource).not.toContain("className: 'dshWbModeOption', role: 'menuitemradio', draggable")
     expect(fullSource).not.toContain('dshWbModeOrder')
     expect(fullSource).not.toContain('dshWbModeOrderButton')
@@ -2106,7 +2105,7 @@ describe('workbench market screenshot and metadata display', () => {
   it('gives each workbench its own icon instead of the shared market glyph', () => {
     expect(fullSource).toContain("if (own && [...own].length <= 2) return h('span', { className: 'dshWbGlyph'")
     expect(fullSource).toContain("[/投标|招标|标书|bid|tender/i, 'bid']")
-    expect(fullSource).toContain("if (name === 'bid') return h('svg'")
+    expect(fullSource).toContain('"bid": ui.IconFileCheckOutlineMedium')
     expect(fullSource).toContain("[/玄学|命理|人生|life/i, 'life']")
     expect(fullSource).toContain("if (name === 'life') return h('svg'")
     expect(fullSource).not.toContain("function WorkbenchIcon({ size = 16 }) { return h(MarketIcon, { name: 'market', size }) }")

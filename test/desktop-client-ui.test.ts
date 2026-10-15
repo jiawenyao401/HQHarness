@@ -26,7 +26,9 @@ describe('HQHarness client slot occupants', () => {
     const removeStyle = vi.fn()
     let disposeStyle: (() => void) | undefined
     const document = {
-      getElementById: vi.fn(() => null),
+      getElementById: vi.fn((id: string) => id === 'hqharness-ui-profile'
+        ? { textContent: JSON.stringify({ '--dsw-alias-bg-base': { light: '#ffffff', dark: '#0a0a0a' } }) }
+        : null),
       createElement: vi.fn(() => ({ id: '', dataset: {}, textContent: '', remove: removeStyle })),
       head: { appendChild: (node: { textContent?: string }) => appended.push(node) }
     }
@@ -82,9 +84,18 @@ describe('HQHarness client slot occupants', () => {
         return () => undefined
       }
     }
-    plugin.apply({ slots, effect: (setup: () => (() => void) | undefined) => { disposeStyle = setup() } })
+    const disposeTheme = vi.fn()
+    const overrideTokens = vi.fn(() => disposeTheme)
+    const disposers: Array<() => void> = []
+    plugin.apply({ slots, theme: { overrideTokens }, effect: (setup: () => (() => void) | undefined) => {
+      disposeStyle = setup()
+      if (disposeStyle) disposers.push(disposeStyle)
+    } })
 
-    expect(plugin.inject).toEqual(['slots', 'remote.session', 'sessions', 'uiWorkspace'])
+    expect(plugin.inject).toEqual(['slots', 'remote.session', 'sessions', 'uiWorkspace', 'theme'])
+    expect(overrideTokens).toHaveBeenCalledWith('dsh-desktop-client-ui', {
+      '--dsw-alias-bg-base': { light: '#ffffff', dark: '#0a0a0a' }
+    })
     expect(registrations.map(({ config }) => config.name)).toEqual([
       'sidebar.brand.mark',
       'sidebar.brand.name',
@@ -97,41 +108,31 @@ describe('HQHarness client slot occupants', () => {
     // Desktop toolbar styles have an owned lifetime; brand colors are scoped to artwork.
     expect(appended).toHaveLength(1)
     expect(appended[0]?.textContent).toContain("[data-dsh-preset-search]")
-    disposeStyle?.()
+    disposers.forEach(dispose => dispose())
     expect(removeStyle).toHaveBeenCalledOnce()
+    expect(disposeTheme).toHaveBeenCalledOnce()
 
     const sidebarName = registrations.find(
       ({ config }) => config.name === 'sidebar.brand.name'
-    )!.component({}) as { type: unknown; props: Record<string, unknown> }
-    expect(sidebarName.type).toBe('span')
-    expect(sidebarName.props.children).toEqual(['HQHarness'])
+    )!.component({})
+    expect(sidebarName).toBeNull()
 
     const sidebarMark = registrations.find(
       ({ config }) => config.name === 'sidebar.brand.mark'
     )!.component({ size: 24 }) as { type: unknown; props: Record<string, unknown> }
-    expect(sidebarMark.type).toBe('svg')
+    expect(sidebarMark.type).toBe('img')
     expect(sidebarMark.props.height).toBe(24)
-    expect(sidebarMark.props.viewBox).toBe('0 0 1000 1000')
-    const [markPath, accentPath] = sidebarMark.props.children as Array<{ type: unknown; props: Record<string, unknown> }>
-    if (!markPath) throw new Error('Expected the sidebar brand SVG path')
-    expect(markPath.type).toBe('path')
-    expect(markPath.props.fill).toBe('var(--dsw-alias-label-primary-bluish)')
-    expect(markPath.props.fillRule).toBe('evenodd')
-    const brandSource = await readFile(path.join(projectRoot, 'build/brand-mark.svg'), 'utf8')
-    const brandPath = /\sd="([^"]+)"/u.exec(brandSource)?.[1]
-    expect(brandPath).toBeTruthy()
-    expect(markPath.props.d).toBe(brandPath)
-    expect(accentPath?.props.d).toBe(brandPath?.slice(brandPath.lastIndexOf('M')))
-    expect(accentPath?.props.fill).toBe('var(--dsw-alias-state-business-primary)')
-    expect(sidebarMark.props.style).toEqual({ '--dsw-alias-state-business-primary': '#14B8A6' })
+    expect(sidebarMark.props.src).toBe('/hqzyai-logomark.svg')
+    expect(sidebarMark.props.alt).toBe('HQZY')
+    expect(sidebarMark.props.draggable).toBe(false)
+    expect(sidebarMark.props.style).toEqual({ objectFit: 'contain', flexShrink: 0, display: 'block' })
 
     const heroMark = registrations.find(
       ({ config }) => config.name === 'conversation.hero.brand.mark'
     )!.component({ size: 48 }) as { type: unknown; props: Record<string, unknown> }
-    expect(heroMark.type).toBe('svg')
+    expect(heroMark.type).toBe('img')
     expect(heroMark.props.width).toBe(48)
     expect(heroMark.props.height).toBe(48)
-    expect(heroMark.props.viewBox).toBe(sidebarMark.props.viewBox)
-    expect(heroMark.props.children).toEqual(sidebarMark.props.children)
+    expect(heroMark.props.src).toBe(sidebarMark.props.src)
   })
 })

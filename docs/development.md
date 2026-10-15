@@ -19,7 +19,7 @@ npm ci
 npm run dev
 ```
 
-`npm ci` runs the repository's `postinstall` hook. It reapplies the tracked `patch-package` patches, generates HQHarness assets under `.build/brand` from `build/brand-mark.svg` and `brand.config.json`, installs them into the pinned Harness frontend, and installs Electron.
+`npm ci` runs the repository's `postinstall` hook. It reapplies the tracked `patch-package` patches, rebuilds the pinned official Harness Web shell through `ui:prepare`, generates HQHarness assets under `.build/brand` from `docs/shadcn-ui-unify/assets/branding/hqzyai-logomark.svg` and `brand.config.json`, installs them into the pinned Harness frontend, and installs Electron.
 
 Development builds use the separate application name `HQHarness Dev` and the separate user-data directory `hqharness-dev`, so they do not reuse production HQHarness data or the upstream DSH Desktop profile. Production HQHarness uses `hqharness`. Data is not automatically migrated from DSH Desktop. Multiple development worktrees still share that development profile by default; avoid running them at the same time when testing profile, plugin, migration, or recovery changes.
 

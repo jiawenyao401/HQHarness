@@ -219,16 +219,9 @@ describe('HQHarness onboarding introduction', () => {
     expect(source).not.toContain('https://github.com/dataelement/dsh-desktop')
     expect(source).not.toContain('dshdesktop.com')
     expect(source).not.toContain('GITHUB_MARK_PATH')
-    const brandSource = readFileSync(path.join(projectRoot, 'build/brand-mark.svg'), 'utf8')
-    const brandPath = /\sd="([^"]+)"/u.exec(brandSource)?.[1]
-    expect(brandPath).toBeTruthy()
-    expect(source).toContain(`const BRAND_MARK_PATH = '${brandPath}'`)
-    expect(source).toContain("fillRule: 'evenodd'")
-    expect(source).toContain("const BRAND_MARK_ACCENT_PATH = BRAND_MARK_PATH.slice(BRAND_MARK_PATH.lastIndexOf('M'))")
-    expect(source).toContain("fill: 'var(--dsw-alias-label-primary-bluish)'")
-    expect(source).toContain("fill: 'var(--dsw-alias-state-business-primary)'")
-    expect(source).toContain("style: { '--dsw-alias-state-business-primary': '#14B8A6' }")
-    expect(source).toContain('const BRAND_MARK_VIEWBOX = { x: 0, y: 0, width: 1000, height: 1000 }')
+    expect(source).toContain("src: '/hqzyai-logomark.svg'")
+    expect(source).toContain("objectFit: 'contain'")
+    expect(source).not.toContain('BRAND_MARK_PATH')
   })
 
   it('registers the desktop notice as the only onboarding step', () => {

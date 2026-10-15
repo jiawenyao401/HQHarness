@@ -18,5 +18,7 @@
 - insert:
     - id: dsh-desktop-client-ui
       name: dsh-desktop-client-ui
+    - id: hqharness-model-access
+      name: hqharness-model-access
     - id: dsh-desktop-hmr-fallback
       name: dsh-desktop-hmr-fallback

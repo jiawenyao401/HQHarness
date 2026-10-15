@@ -30,7 +30,7 @@ const manifestPath = path.join(destinationDirectory, 'manifest.webmanifest')
  * @returns index.html with the desktop icon link.
  */
 function replaceIconLink(contents, file) {
-  const desktop = '<link rel="icon" type="image/png" href="/dsh-desktop-logo.png" />'
+  const desktop = '<link rel="icon" type="image/svg+xml" href="/hqzyai-logomark.svg" />'
   if (contents.includes(desktop)) return contents
   const matches = contents.match(/<link rel="icon"[^>]*>/gu) ?? []
   const themedLinks = matches.length === 2
@@ -61,16 +61,17 @@ function replaceManifestIcon(contents, file) {
   manifest.name = 'HQHarness'
   manifest.short_name = 'HQHarness'
   manifest.description = 'Local-first AI agent workspace'
-  manifest.theme_color = '#13283F'
+  manifest.theme_color = '#ffffff'
   const icons = Array.isArray(manifest.icons) ? manifest.icons : []
   const target = icons.find((icon) => icon?.src === '/dsh-desktop-logo.png')
+    ?? icons.find((icon) => icon?.src === '/hqzyai-logomark.svg')
     ?? icons.find((icon) => typeof icon?.src === 'string' && icon.src.endsWith('favicon.svg'))
   if (target === undefined) {
     throw new Error(`Could not update HQHarness branding in ${file}: no icon entry to replace`)
   }
-  target.src = '/dsh-desktop-logo.png'
-  target.sizes = '1024x1024'
-  target.type = 'image/png'
+  target.src = '/hqzyai-logomark.svg'
+  target.sizes = 'any'
+  target.type = 'image/svg+xml'
   return `${JSON.stringify(manifest, null, 2)}\n`
 }
 
@@ -78,6 +79,7 @@ await mkdir(destinationDirectory, { recursive: true })
 await copyFile(source, destination)
 await copyFile(lightSource, lightDestination)
 await copyFile(darkSource, darkDestination)
+await copyFile(path.join(projectRoot, '.build/brand/hqzyai-logomark.svg'), path.join(destinationDirectory, 'hqzyai-logomark.svg'))
 
 const index = await readFile(indexPath, 'utf8')
 await writeFile(indexPath, replaceIconLink(index, path.relative(projectRoot, indexPath)).replace(/<title>[^<]*<\/title>/u, '<title>HQHarness</title>'))
@@ -93,3 +95,5 @@ console.log(`Installed HQHarness brand assets: ${[
   lightDestination,
   darkDestination
 ].map((file) => path.relative(projectRoot, file)).join(', ')}`)
+
+await import('./prepare-ui-assets.mjs')

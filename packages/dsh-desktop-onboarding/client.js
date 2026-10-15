@@ -13,11 +13,6 @@ window.__ModuleLoader__.load({
     // Settings section the "configure a model" action opens.
     const MODELS_SECTION_ID = 'models'
 
-    // Artwork from build/brand-mark.svg; a contract test keeps brand seats aligned.
-    const BRAND_MARK_VIEWBOX = { x: 0, y: 0, width: 1000, height: 1000 }
-    const BRAND_MARK_PATH = 'M140 270H230V455H365V270H455V730H365V545H230V730H140ZM685 260C578 260 510 352 510 500S578 740 685 740 860 648 860 500 792 260 685 260ZM685 350C738 350 770 405 770 500S738 650 685 650 600 595 600 500 632 350 685 350ZM705 605 765 565 890 730 830 775Z'
-    const BRAND_MARK_ACCENT_PATH = BRAND_MARK_PATH.slice(BRAND_MARK_PATH.lastIndexOf('M'))
-
     const STYLE_ID = 'dsh-desktop-onboarding-style'
     // Same dialog chrome as the stock welcome notice it replaces: a bounded
     // card whose body scrolls while the brand row and actions stay put.
@@ -26,10 +21,10 @@ window.__ModuleLoader__.load({
       .dshDeskOnbContent{box-sizing:border-box;display:flex;flex-direction:column;max-height:calc(100vh - 48px);padding:24px 28px}
       .dshDeskOnbHeader{flex:none;display:flex;align-items:center;gap:10px}
       .dshDeskOnbBrandMark{display:inline-flex;align-items:center;color:var(--dsw-alias-label-primary)}
-      .dshDeskOnbBrandName{font-size:15px;font-weight:600;color:var(--dsw-alias-label-primary);line-height:22px}
+      .dshDeskOnbBrandName{font-size:16px;font-weight:600;color:var(--dsw-alias-label-primary);line-height:22px}
       .dshDeskOnbHeading{flex:none;color:var(--dsw-alias-label-primary);outline:none;margin:16px 0 0;font-size:20px;font-weight:500;line-height:28px}
       .dshDeskOnbBody{flex:1;min-height:0;margin-top:12px;overflow-y:auto}
-      .dshDeskOnbParagraph{margin:0 0 10px;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary)}
+      .dshDeskOnbParagraph{margin:0 0 10px;font-size:14px;line-height:20px;color:var(--dsw-alias-label-secondary)}
       .dshDeskOnbSubheading{margin:14px 0 6px;font-size:14px;font-weight:600;color:var(--dsw-alias-label-primary);line-height:20px}
       .dshDeskOnbHint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}
       .dshDeskOnbActions{flex:none;display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
@@ -73,29 +68,12 @@ window.__ModuleLoader__.load({
 
     // ---------- components ----------
 
-    function BrandHeader({ t }) {
-      const height = 36
-      return React.createElement(
-        'div',
-        { className: 'dshDeskOnbHeader' },
-        React.createElement(
-          'span',
-          { className: 'dshDeskOnbBrandMark', 'aria-hidden': 'true' },
-          React.createElement(
-            'svg',
-            {
-              width: height * BRAND_MARK_VIEWBOX.width / BRAND_MARK_VIEWBOX.height,
-              height,
-              viewBox: BRAND_MARK_VIEWBOX.x + ' ' + BRAND_MARK_VIEWBOX.y + ' ' + BRAND_MARK_VIEWBOX.width + ' ' + BRAND_MARK_VIEWBOX.height,
-              fill: 'none',
-              // The host has no teal alias. Scope its public accent token to this artwork.
-              style: { '--dsw-alias-state-business-primary': '#14B8A6' }
-            },
-            React.createElement('path', { d: BRAND_MARK_PATH, fill: 'var(--dsw-alias-label-primary-bluish)', fillRule: 'evenodd' }),
-            React.createElement('path', { d: BRAND_MARK_ACCENT_PATH, fill: 'var(--dsw-alias-state-business-primary)' })
-          )
-        ),
-        React.createElement('span', { className: 'dshDeskOnbBrandName' }, t('brandName'))
+    function BrandHeader() {
+      return React.createElement('div', { className: 'dshDeskOnbHeader' },
+        React.createElement('img', {
+          src: '/hqzyai-logomark.svg', width: 28, height: 28, alt: 'HQZY', draggable: false,
+          style: { objectFit: 'contain', flexShrink: 0, display: 'block' }
+        })
       )
     }
 

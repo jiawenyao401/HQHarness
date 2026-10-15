@@ -59,8 +59,9 @@ describe('HQHarness frontend branding', () => {
   it('installs the source logo into the Harness static frontend', async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(projectRoot, 'package.json'), 'utf8')
-    ) as { scripts: { postinstall: string } }
+    ) as { scripts: { postinstall: string; 'ui:prepare': string } }
 
-    expect(packageJson.scripts.postinstall).toContain('node scripts/install-brand-assets.mjs')
+    expect(packageJson.scripts.postinstall).toContain('npm run ui:prepare')
+    expect(packageJson.scripts['ui:prepare']).toContain('node scripts/install-brand-assets.mjs')
   })
 })

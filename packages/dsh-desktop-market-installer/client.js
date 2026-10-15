@@ -88,7 +88,7 @@ window.__ModuleLoader__.load({
       .dshDesktopMarketSection{box-sizing:border-box;max-width:720px;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;gap:16px}
       .dshDesktopMarketTitle{margin:0;font-size:20px;font-weight:600;line-height:30px}
       .dshDesktopMarketIntro{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}
-      .dshDesktopMarketCard{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:18px}
+      .dshDesktopMarketCard{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:var(--dsw-radius-panel);padding:20px;display:flex;flex-direction:column;gap:16px}
       .dshDesktopMarketMark{width:46px;height:46px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1);display:grid;grid-template-columns:repeat(2,10px);grid-auto-rows:10px;place-content:center;gap:4px}
       .dshDesktopMarketMark span{display:block;border-radius:3px;background:var(--dsw-alias-label-primary)}
       .dshDesktopMarketMark span:nth-child(4){opacity:.28}
@@ -99,9 +99,9 @@ window.__ModuleLoader__.load({
       .dshDesktopMarketNotice{margin:0;padding-top:16px;border-top:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:19px}
       .dshDesktopMarketStatus{display:flex;flex-direction:column;gap:5px}
       .dshDesktopMarketStatusTitle{font-size:14px;font-weight:600;line-height:22px}
-      .dshDesktopMarketStatusDetail{margin:0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:20px;overflow-wrap:anywhere}
+      .dshDesktopMarketStatusDetail{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:20px;overflow-wrap:anywhere}
       .dshDesktopMarketActions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-      .dshDesktopMarketButton{box-sizing:border-box;height:36px;padding:0 16px;border:1px solid transparent;border-radius:18px;font:inherit;font-size:14px;font-weight:500;cursor:pointer}
+      .dshDesktopMarketButton{box-sizing:border-box;height:36px;padding:0 16px;border:1px solid transparent;border-radius:var(--dsw-radius-md);font:inherit;font-size:14px;font-weight:500;cursor:pointer}
       .dshDesktopMarketPrimary{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-primary-fill)}
       .dshDesktopMarketPrimary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}
       .dshDesktopMarketSecondary{color:var(--dsw-alias-label-primary);background:transparent;border-color:var(--dsw-alias-border-l3)}
@@ -110,14 +110,14 @@ window.__ModuleLoader__.load({
       .dshDesktopMarketIconButton{display:inline-flex;align-items:center;gap:8px;text-decoration:none;line-height:34px}
       .dshDesktopMarketIconButton svg{width:16px;height:16px;flex:none;fill:currentColor}
       .dshDesktopMarketButton:focus-visible,.dshDesktopMarketLink:focus-visible{outline:none;box-shadow:0 0 0 2px var(--dsw-alias-border-l3)}
-      .dshDesktopMarketLink{color:var(--dsw-alias-label-secondary);border-radius:6px;padding:5px 4px;font-size:13px;line-height:20px;text-decoration:none}
+      .dshDesktopMarketLink{color:var(--dsw-alias-label-secondary);border-radius:6px;padding:5px 4px;font-size:14px;line-height:20px;text-decoration:none}
       .dshDesktopMarketLink:hover{color:var(--dsw-alias-label-primary);text-decoration:underline}
       .dshDesktopMarketSpinner{box-sizing:border-box;width:16px;height:16px;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-label-primary);border-radius:50%;animation:dshDesktopMarketSpin .75s linear infinite}
       .dshDesktopMarketBusy{display:flex;align-items:center;gap:9px}
       .dshDesktopMarketError{color:var(--dsw-alias-state-error-primary)}
-      .dshDesktopBuiltInImage{list-style:none;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-3);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;color:var(--dsw-alias-label-primary)}.dshDesktopBuiltInImageTitle{font-size:15px;font-weight:600}.dshDesktopBuiltInImageHint{margin:0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}.dshDesktopBuiltInImageLabel{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}.dshDesktopBuiltInImageLabel input{accent-color:var(--dsw-alias-brand-primary)}
+      .dshDesktopBuiltInImage{list-style:none;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-3);border-radius:var(--dsw-radius-panel);padding:16px;display:flex;flex-direction:column;gap:10px;color:var(--dsw-alias-label-primary)}.dshDesktopBuiltInImageTitle{font-size:16px;font-weight:600}.dshDesktopBuiltInImageHint{margin:0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}.dshDesktopBuiltInImageLabel{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}.dshDesktopBuiltInImageLabel input{accent-color:var(--dsw-alias-brand-primary)}
       .dshDesktopMarketModalBackdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(0,0,0,.42)}
-      .dshDesktopMarketModal{box-sizing:border-box;width:min(440px,100%);padding:24px;border:1px solid var(--dsw-alias-border-l2);border-radius:16px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 18px 48px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:12px}
+      .dshDesktopMarketModal{box-sizing:border-box;width:min(440px,100%);padding:24px;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-panel);background:var(--dsw-alias-bg-layer-1);box-shadow:0 18px 48px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:12px}
       .dshDesktopMarketModalTitle{margin:0;font-size:18px;font-weight:600;line-height:26px}
       .dshDesktopMarketModalText{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}
       .dshDesktopMarketModalNote{margin:0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:19px}

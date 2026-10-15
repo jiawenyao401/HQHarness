@@ -1,6 +1,6 @@
 # HQHarness
 
-<img src="build/brand-mark.svg" width="80" alt="HQHarness HQ logo" />
+<img src="docs/shadcn-ui-unify/assets/branding/hqzyai-logomark.svg" width="80" alt="HQZY logo" />
 
 [English](README.md) · [简体中文](README.zh.md) · [日本語](README.ja.md) · [Русский](README.ru.md) · [Español](README.es.md) · [Português](README.pt.md)
 

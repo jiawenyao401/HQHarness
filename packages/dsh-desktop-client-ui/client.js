@@ -8,37 +8,33 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { MenuItemButton } = require('@deepseek-ai/dsh-client-ui-primitives')
 
-    // Artwork from build/brand-mark.svg; a contract test keeps brand seats aligned.
-    const BRAND_MARK_VIEWBOX = { x: 0, y: 0, width: 1000, height: 1000 }
-    const BRAND_MARK_PATH = 'M140 270H230V455H365V270H455V730H365V545H230V730H140ZM685 260C578 260 510 352 510 500S578 740 685 740 860 648 860 500 792 260 685 260ZM685 350C738 350 770 405 770 500S738 650 685 650 600 595 600 500 632 350 685 350ZM705 605 765 565 890 730 830 775Z'
-    const BRAND_MARK_ACCENT_PATH = BRAND_MARK_PATH.slice(BRAND_MARK_PATH.lastIndexOf('M'))
-
-    function DesktopBrandMark({ size = 32, className } = {}) {
-      return React.createElement(
-        'svg',
-        {
-          width: size,
-          height: size,
-          className,
-          viewBox: `${BRAND_MARK_VIEWBOX.x} ${BRAND_MARK_VIEWBOX.y} ${BRAND_MARK_VIEWBOX.width} ${BRAND_MARK_VIEWBOX.height}`,
-          fill: 'none',
-          // The host has no teal alias. Scope its public accent token to this artwork.
-          style: { '--dsw-alias-state-business-primary': '#14B8A6' },
-          'aria-hidden': 'true'
-        },
-        React.createElement('path', { d: BRAND_MARK_PATH, fill: 'var(--dsw-alias-label-primary-bluish)', fillRule: 'evenodd' }),
-        React.createElement('path', { d: BRAND_MARK_ACCENT_PATH, fill: 'var(--dsw-alias-state-business-primary)' })
-      )
+    // The build copies the user's original gradient SVG without recoloring it.
+    function DesktopBrandMark({ size = 28, className } = {}) {
+      return React.createElement('img', {
+        src: '/hqzyai-logomark.svg',
+        width: size <= 24 ? 24 : 28,
+        height: size <= 24 ? 24 : 28,
+        className,
+        alt: 'HQZY',
+        draggable: false,
+        style: { objectFit: 'contain', flexShrink: 0, display: 'block' }
+      })
     }
 
     function DesktopBrandName() {
-      return React.createElement('span', {
-        style: { fontSize: 15, fontWeight: 650, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }
-      }, 'HQHarness')
+      return null
     }
 
     function ConversationBrandMark(props) {
-      return DesktopBrandMark(props)
+      return React.createElement('img', {
+        src: '/hqzyai-logomark.svg',
+        width: props?.size ?? 48,
+        height: props?.size ?? 48,
+        className: props?.className,
+        alt: 'HQZY',
+        draggable: false,
+        style: { objectFit: 'contain', flexShrink: 0, display: 'block' }
+      })
     }
 
     function OpenUnpreviewableFile({ absolutePath, openWorkspacePath }) {
@@ -108,14 +104,21 @@ window.__ModuleLoader__.load({
       }, unread ? (chinese ? '标为已读' : 'Mark as read') : (chinese ? '标为未读' : 'Mark as unread'))
     }
 
-    const inject = ['slots', 'remote.session', 'sessions', 'uiWorkspace']
+    const inject = ['slots', 'remote.session', 'sessions', 'uiWorkspace', 'theme']
     function apply(ctx) {
+      ctx.effect(() => {
+        const data = document.getElementById('hqharness-ui-profile')
+        if (!data?.textContent) throw new Error('HQHarness visual profile was not included in the application HTML')
+        // The public theme layer composes and disposes with Harness light/dark/system.
+        return ctx.theme.overrideTokens('dsh-desktop-client-ui', JSON.parse(data.textContent))
+      })
       ctx.effect(() => {
         const id = 'dsh-desktop-preset-toolbar-style'
         if (document.getElementById(id)) return
         const style = document.createElement('style')
         style.id = id
         style.textContent = `
+          html[data-platform] body [data-dsh-sidebar-root] { background:var(--dsw-specific-sidebar-fill); }
           [data-dsh-preset-heading] { display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px; }
           [data-dsh-preset-heading] h2 { margin:0; }
           [data-dsh-preset-actions] { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-left:auto; }
@@ -123,13 +126,13 @@ window.__ModuleLoader__.load({
           [data-dsh-preset-search] { margin-bottom:16px; }
           [data-dsh-preset-search] input[type=search] {
             box-sizing:border-box; width:100%; min-width:0; height:36px;
-            border:1px solid var(--dsw-alias-border-l2); border-radius:10px;
-            background:var(--dsw-alias-bg-module-platform); color:var(--dsw-alias-label-primary);
-            padding:0 12px; font:inherit; font-size:13px;
+            border:1px solid var(--dsw-alias-ui-control-border); border-radius:var(--dsw-radius-md);
+            background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-primary);
+            padding:0 12px; font:inherit; font-size:14px;
           }
           [data-dsh-preset-search] input[type=search]::placeholder { color:var(--dsw-alias-label-caption); }
           [data-dsh-preset-search] input[type=search]:focus-visible {
-            outline:2px solid var(--dsw-alias-state-business-primary); outline-offset:2px;
+            outline:2px solid var(--dsw-alias-ui-focus-ring); outline-offset:2px;
             background:var(--dsw-alias-bg-base);
           }
         `

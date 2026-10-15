@@ -2,6 +2,7 @@ import sharp from 'sharp'
 import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
 import { validateBrandConfig } from '../src/shared/brand-config.ts'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -9,10 +10,13 @@ const output = path.join(root, '.build', 'brand')
 const brand = JSON.parse(await readFile(path.join(root, 'brand.config.json'), 'utf8'))
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 validateBrandConfig(brand, packageJson)
-const artwork = await readFile(path.join(root, 'build', 'brand-mark.svg'), 'utf8')
-const mark = /<path[^>]*\sd="([^"]+)"/u.exec(artwork)?.[1]
-if (!mark) throw new Error('HQHarness brand mark must contain a path')
+const standardRoot = path.join(root, 'docs/shadcn-ui-unify')
+const profile = JSON.parse(await readFile(path.join(standardRoot, 'assets/neutral-theme.json'), 'utf8'))
+const artworkBytes = await readFile(path.join(standardRoot, profile.branding.favicon.asset))
+if (createHash('sha256').update(artworkBytes).digest('hex') !== profile.branding.favicon.sha256) throw new Error('HQZY brand artwork integrity mismatch')
+const artwork = artworkBytes.toString('utf8')
 await mkdir(output, { recursive: true })
+await writeFile(path.join(output, 'hqzyai-logomark.svg'), artworkBytes)
 await writeFile(path.join(output, 'installer-brand.nsh'), [
   `!if "\${APP_ID}" == "${brand.appId}"`,
   `  !define HQHARNESS_USER_DATA "${brand.userDataDirectory}"`,
@@ -28,16 +32,17 @@ for (const name of await readdir(path.join(root, 'build'))) {
 }
 
 // All platform assets share a single vector source and build configuration.
-function svg(color, opacity = 1, offset = 0) {
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1000 1000"><g transform="translate(0 ${offset})" opacity="${opacity}"><path d="${mark}" fill-rule="evenodd" fill="${color}"/></g></svg>`)
+function svg(opacity = 1, offset = 0) {
+  const centered = artwork.replace(/<\?xml[^?]*\?>/u, '').replace('<svg ', '<svg x="103.5" y="216" ')
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1000 1000"><g transform="translate(0 ${offset})" opacity="${opacity}">${centered}</g></svg>`)
 }
 
-const appSvg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1000 1000"><rect x="32" y="32" width="936" height="936" rx="208" fill="${brand.colors.ink}"/><path d="${mark}" fill-rule="evenodd" fill="#F0FDFA"/><path d="M705 605 765 565 890 730 830 775Z" fill="${brand.colors.accent}"/></svg>`)
+const appSvg = Buffer.from(svg().toString('utf8').replace('<g ', `<rect x="32" y="32" width="936" height="936" rx="208" fill="${profile.light.background}"/><g `))
 const appPng = await sharp(appSvg).png().toBuffer()
 await writeFile(path.join(output, 'app-icon.png'), appPng)
 await writeFile(path.join(output, 'icon.png'), appPng)
-for (const [theme, color] of [['light', brand.colors.ink], ['dark', '#F0FDFA']]) {
-  await sharp(svg(color)).png().toFile(path.join(output, `logo-${theme}.png`))
+for (const theme of ['light', 'dark']) {
+  await sharp(svg()).png().toFile(path.join(output, `logo-${theme}.png`))
 }
 
 // PNG-backed ICO and ICNS work on every host without platform converters.
@@ -75,11 +80,11 @@ await writeFile(path.join(output, 'icon.icns'), Buffer.concat([icns, ...chunks])
 const width = 640
 const height = 360
 const frameCount = 24
-for (const [theme, color] of [['light', brand.colors.ink], ['dark', '#F0FDFA']]) {
+for (const theme of ['light', 'dark']) {
   const frames = []
   for (let frame = 0; frame < frameCount; frame += 1) {
     const phase = frame * Math.PI * 2 / frameCount
-    const bytes = await sharp(svg(color, 0.88 + Math.sin(phase) * 0.12, Math.sin(phase) * 8))
+    const bytes = await sharp(svg(0.88 + Math.sin(phase) * 0.12, Math.sin(phase) * 8))
       .resize(320, 320).extend({ top: 20, bottom: 20, left: 160, right: 160, background: '#00000000' })
       .ensureAlpha().raw().toBuffer()
     frames.push(bytes)

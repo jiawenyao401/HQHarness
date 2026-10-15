@@ -106,7 +106,7 @@ describe('GitHub release contract', () => {
   it('does not promote optional Harness providers and test support into the desktop runtime', async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(projectRoot, 'package.json'), 'utf8')
-    ) as { dependencies: Record<string, string> }
+    ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> }
     const packageLock = JSON.parse(
       await readFile(path.join(projectRoot, 'package-lock.json'), 'utf8')
     ) as { packages: Record<string, unknown> }
@@ -115,7 +115,6 @@ describe('GitHub release contract', () => {
       '@deepseek-ai/cordis-plugin-logger-console',
       '@deepseek-ai/dsh-agent-loop-testkit',
       '@deepseek-ai/dsh-client-test-runtime',
-      '@deepseek-ai/dsh-client-web',
       // upstream 0.1.2-rc.1 moved this to packages/experimental/ (out of the
       // dsh family tarball set); desktop continues not to bundle it.
       '@deepseek-ai/dsh-code-runtime-python',
@@ -149,6 +148,11 @@ describe('GitHub release contract', () => {
       expect(packageJson.dependencies[packageName]).toBeUndefined()
       expect(packageLock.packages[`node_modules/${packageName}`]).toBeUndefined()
     }
+    // The same official shell is rebuilt for the current primitives. Its Node
+    // package is build-only; the browser bundle has always contained this code.
+    expect(packageJson.dependencies['@deepseek-ai/dsh-client-web']).toBeUndefined()
+    expect(packageJson.devDependencies['@deepseek-ai/dsh-client-web']).toBe(HARNESS_VERSION)
+    expect(packageLock.packages['node_modules/@deepseek-ai/dsh-client-web']).toMatchObject({ dev: true })
     expect(packageLock.packages['node_modules/@anthropic-ai/claude-agent-sdk']).toBeUndefined()
     expect(packageLock.packages['node_modules/@openai/codex']).toBeUndefined()
   })

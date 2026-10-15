@@ -1,8 +1,1948 @@
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Button.module.css b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Button.module.css
+index 731c593..1d72088 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Button.module.css
++++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Button.module.css
+@@ -4,32 +4,33 @@
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+-  gap: 4px;
++  gap: var(--dsw-alias-ui-control-gap, 8px);
+   border: none;
+   border-radius: var(--dsw-radius-md);
+   cursor: pointer;
+   font-size: 14px;
+-  line-height: 22px;
++  line-height: 20px;
++  font-weight: 500;
+   color: var(--dsw-alias-label-primary);
+   background: transparent;
+-  padding: 0 14px;
++  padding: 0 var(--dsw-alias-ui-control-padding, 12px);
+ }
+
+ .button:disabled {
+   cursor: not-allowed;
+-  opacity: 0.4;
++  opacity: 0.5;
+ }
+
+ .md {
+-  height: 36px;
++  min-height: var(--dsw-alias-ui-control-height, 36px);
+ }
+
+ /* Compact controls retain their dimensions across filled and outlined variants. */
+ .sm {
+-  height: 28px;
+-  font-size: 12px;
+-  line-height: 18px;
+-  padding: 0 10px;
++  min-height: var(--dsw-alias-ui-control-compact-height, 32px);
++  font-size: 14px;
++  line-height: 20px;
++  padding: 0 8px;
+   border-radius: var(--dsw-radius-sm);
+ }
+
+@@ -52,7 +53,7 @@
+
+ /* Outlined actions use the same neutral stroke as settings links. */
+ .outline {
+-  border: 0.5px solid var(--dsw-alias-border-l3);
++  border: 1px solid var(--dsw-alias-ui-control-border, var(--dsw-alias-border-l4));
+   background: transparent;
+ }
+
+@@ -75,3 +76,5 @@
+   align-items: center;
+   justify-content: center;
+ }
++
++.primary:active:not(:disabled) { background:var(--dsw-alias-ui-primary-active, var(--dsw-alias-button-primary-hover)); }
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Input.module.css b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Input.module.css
+index 30ff82d..88850d9 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Input.module.css
++++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Input.module.css
+@@ -1,12 +1,12 @@
+ .wrap {
+   display: inline-flex;
+   align-items: center;
+-  gap: 6px;
+-  height: 32px;
+-  padding: 0 8px;
+-  border: 0.5px solid var(--dsw-alias-border-l4);
++  gap: var(--dsw-alias-ui-control-gap, 8px);
++  min-height: var(--dsw-alias-ui-control-height, 36px);
++  padding: 0 var(--dsw-alias-ui-control-padding, 12px);
++  border: 1px solid var(--dsw-alias-ui-control-border, var(--dsw-alias-border-l4));
+   border-radius: var(--dsw-radius-md);
+-  background: var(--dsw-alias-bg-layer-1);
++  background: var(--dsw-alias-bg-base);
+ }
+
+ .wrap:focus-within {
+@@ -29,7 +29,7 @@
+   outline: none;
+   background: transparent;
+   font-size: 14px;
+-  line-height: 22px;
++  line-height: 20px;
+   color: var(--dsw-alias-label-primary);
+ }
+
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Menu.module.css b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Menu.module.css
+index a6d6714..309f626 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Menu.module.css
++++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Menu.module.css
+@@ -12,9 +12,9 @@
+   display: flex;
+   flex-direction: column;
+   gap: 0;
+-  border: 0;
++  border: 1px solid var(--dsw-alias-border-l2);
+   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+-  box-shadow: var(--dsw-elevation-prominent);
++  box-shadow: var(--dsw-alias-ui-popover-shadow, var(--dsw-elevation-prominent));
+   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens. The
+      declaration sits on the card rather than on `.scrollable .viewport`
+      because the elevation is a property of this surface, and the custom
+@@ -82,9 +82,9 @@
+   flex: none;
+   display: flex;
+   flex-direction: column;
+-  margin-top: 3px;
+-  padding-top: 3px;
+-  border-top: 0.5px solid var(--dsw-alias-border-l2);
++  margin-top: 4px;
++  padding-top: 4px;
++  border-top: 1px solid var(--dsw-alias-border-l2);
+ }
+
+ .itemWrap {
+@@ -95,15 +95,16 @@
+ .item {
+   display: flex;
+   align-items: center;
+-  gap: 6px;
++  gap: 8px;
+   width: 100%;
+-  min-height: 34px;
++  min-height: 32px;
+   padding: 6px 8px;
+   border: none;
+   border-radius: var(--dsw-radius-md);
+   background: transparent;
+   cursor: pointer;
+-  font-size: 13px;
++  font-size: 14px;
++  font-weight: 500;
+   line-height: 20px;
+   color: var(--dsw-alias-label-primary);
+   text-align: left;
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Modal.module.css b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Modal.module.css
+index be4b832..bd6c38b 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Modal.module.css
++++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Modal.module.css
+@@ -37,13 +37,13 @@
+   display: flex;
+   flex-direction: column;
+   gap: 20px;
+-  width: min(380px, 100%);
++  width: min(480px, 100%);
+   padding: 0 0 24px;
+   overflow: hidden;
+-  border: 0;
++  border: 1px solid var(--dsw-alias-border-l2);
+   border-radius: var(--dsw-radius-panel);
+-  background: var(--dsw-alias-bg-layer-2);
+-  box-shadow: var(--dsw-elevation-prominent);
++  background: var(--dsw-alias-ui-surface, var(--dsw-alias-bg-layer-1));
++  box-shadow: var(--dsw-alias-ui-modal-shadow, var(--dsw-elevation-prominent));
+   animation: modalEnter var(--ds-transition-duration) var(--ds-ease-in-out);
+ }
+
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Tooltip.module.css b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Tooltip.module.css
+index d52b752..9b6348e 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Tooltip.module.css
++++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/Tooltip.module.css
+@@ -8,13 +8,15 @@
+      viewport edge, so anchors near the right edge would wrap early;
+      max-content sizes by the label alone, capped at half the viewport. */
+   width: max-content;
+-  max-width: 50vw;
+-  padding: 3px 7px;
++  max-width: min(320px, 50vw);
++  padding: 6px 8px;
+   border-radius: var(--dsw-radius-sm);
++  border: 1px solid var(--dsw-alias-border-l2);
++  box-shadow: var(--dsw-alias-ui-popover-shadow, var(--dsw-elevation-prominent));
+   background: var(--dsw-alias-tooltip-bg);
+-  color: var(--dsw-static-neutral-bluish-00);
+-  font-size: 13px;
+-  line-height: 20px;
++  color: var(--dsw-alias-label-primary);
++  font-size: 12px;
++  line-height: 18px;
+   white-space: pre-line;
+   /* Unbreakable tokens (URLs, paths) must not push past max-width. */
+   overflow-wrap: break-word;
 diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/index.js b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/index.js
-index 2d94c1a..633f98f 100644
+index 2d94c1a..164e5ab 100644
 --- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/index.js
 +++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/index.js
-@@ -11323,7 +11323,7 @@ function renderNode(node, key, context) {
+@@ -1,3 +1,4 @@
++import { AlarmClock, AlignLeft, Archive, ArchiveRestore, ArchiveX, ArrowLeftRight, ArrowUp, ArrowUpRight, Bookmark, Bot, Brain, Cable, ChartNoAxesCombined, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUpDown, CircleAlert, CircleCheck, CircleCheckBig, CircleHelp, CircleX, Clock, Code, Columns2, Copy, CornerDownRight, Database, Download, Ellipsis, Eye, FileCheck, FileInput, FileText, Flower2, Folder, FolderOpen, FolderPen, FolderPlus, FolderTree, Gauge, GitBranch, Globe, GripVertical, House, Info, LayoutGrid, Link, List, ListChecks, ListOrdered, ListTodo, LoaderCircle, MapPin, Maximize, MessageSquarePlus, Mic, Minimize2, Monitor, Moon, PackageCheck, PanelLeft, PanelsTopLeft, Paperclip, Pause, Pencil, Pin, Play, Plug, Plus, Puzzle, RefreshCw, ScanSearch, Search, Send, Settings, Share2, Shield, ShieldAlert, SlidersHorizontal, Sparkles, Square, Star, Sun, Target, ThumbsDown, ThumbsUp, Trash2, TriangleAlert, User, Users, WandSparkles, WrapText, X, Zap, ZoomIn } from "lucide-react";
+ import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+ import clsx from "clsx";
+ import css from "./StateDot.module.css";
+@@ -64,6 +65,19 @@ import css$33 from "./ImagePreview.module.css";
+ import "katex/dist/katex.min.css";
+ import css$34 from "./WebBlock.module.css";
+ import css$35 from "./markdown/JsonBlock.module.css";
++// HQHarness: preserve Regular/Medium API names; both use the 1.75px profile.
++// Official Lucide glyphs keep the public SVG props and event root.
++function hqIcon(Component, props = {}, filled = false) {
++    return createElement(Component, {
++        size: 16,
++        "aria-hidden": props["aria-label"] || props["aria-labelledby"] ? undefined : true,
++        focusable: false,
++        ...props,
++        strokeWidth: 1.75,
++        nonScalingStroke: true,
++        ...(filled ? { fill: "currentColor" } : {})
++    });
++}
+ //#region lib/types/icons/shared-artwork.js
+ /**
+ * Render new-conversation geometry — the bubble around a plus — for product icons.
+@@ -251,15 +265,9 @@ const ICON_REGULAR_STROKE = 1;
+ /** Medium stroke width used by emphasized product icons. */
+ const ICON_MEDIUM_STROKE = 1.3;
+ /** Regular one-pixel IconNewChatOutline artwork. */
+-const IconNewChatOutlineRegular = (props) => jsx(NewChatOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconNewChatOutlineRegular = (props) => hqIcon(MessageSquarePlus, props, false);
+ /** Medium IconNewChatOutline artwork with a 1.3px stroke. */
+-const IconNewChatOutlineMedium = (props) => jsx(NewChatOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconNewChatOutlineMedium = (props) => hqIcon(MessageSquarePlus, props, false);
+ const IconSearchOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -278,25 +286,13 @@ const IconSearchOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs
+ 	})]
+ });
+ /** Regular one-pixel IconSearchOutline artwork. */
+-const IconSearchOutlineRegular = (props) => jsx(IconSearchOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconSearchOutlineRegular = (props) => hqIcon(Search, props, false);
+ /** Medium IconSearchOutline artwork with a 1.3px stroke. */
+-const IconSearchOutlineMedium = (props) => jsx(IconSearchOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconSearchOutlineMedium = (props) => hqIcon(Search, props, false);
+ /** Regular one-pixel IconGlobeOutline artwork. */
+-const IconGlobeOutlineRegular = (props) => jsx(GlobeOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconGlobeOutlineRegular = (props) => hqIcon(Globe, props, false);
+ /** Medium IconGlobeOutline artwork with a 1.3px stroke. */
+-const IconGlobeOutlineMedium = (props) => jsx(GlobeOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconGlobeOutlineMedium = (props) => hqIcon(Globe, props, false);
+ const IconSettingsOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -316,15 +312,9 @@ const IconSettingsOutlineArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	})]
+ });
+ /** Regular one-pixel IconSettingsOutline artwork. */
+-const IconSettingsOutlineRegular = (props) => jsx(IconSettingsOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconSettingsOutlineRegular = (props) => hqIcon(Settings, props, false);
+ /** Medium IconSettingsOutline artwork with a 1.3px stroke. */
+-const IconSettingsOutlineMedium = (props) => jsx(IconSettingsOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconSettingsOutlineMedium = (props) => hqIcon(Settings, props, false);
+ const IconPanelLeftOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -343,15 +333,9 @@ const IconPanelLeftOutlineArtwork = ({ size = 16, className, strokeWidth }) => j
+ 	})]
+ });
+ /** Regular one-pixel IconPanelLeftOutline artwork. */
+-const IconPanelLeftOutlineRegular = (props) => jsx(IconPanelLeftOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPanelLeftOutlineRegular = (props) => hqIcon(PanelLeft, props, false);
+ /** Medium IconPanelLeftOutline artwork with a 1.3px stroke. */
+-const IconPanelLeftOutlineMedium = (props) => jsx(IconPanelLeftOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPanelLeftOutlineMedium = (props) => hqIcon(PanelLeft, props, false);
+ const IconEllipsisOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -377,15 +361,9 @@ const IconEllipsisOutlineArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	]
+ });
+ /** Regular IconEllipsisOutline artwork; its fill-only geometry is weight-independent. */
+-const IconEllipsisOutlineRegular = (props) => jsx(IconEllipsisOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconEllipsisOutlineRegular = (props) => hqIcon(Ellipsis, props, false);
+ /** Medium IconEllipsisOutline artwork; it matches Regular because the geometry is fill-only. */
+-const IconEllipsisOutlineMedium = (props) => jsx(IconEllipsisOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconEllipsisOutlineMedium = (props) => hqIcon(Ellipsis, props, false);
+ const IconPlusOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -404,15 +382,9 @@ const IconPlusOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconPlusOutline artwork. */
+-const IconPlusOutlineRegular = (props) => jsx(IconPlusOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPlusOutlineRegular = (props) => hqIcon(Plus, props, false);
+ /** Medium IconPlusOutline artwork with a 1.3px stroke. */
+-const IconPlusOutlineMedium = (props) => jsx(IconPlusOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPlusOutlineMedium = (props) => hqIcon(Plus, props, false);
+ const IconCheckOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -428,15 +400,9 @@ const IconCheckOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("
+ 	})
+ });
+ /** Regular one-pixel IconCheckOutline artwork. */
+-const IconCheckOutlineRegular = (props) => jsx(IconCheckOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCheckOutlineRegular = (props) => hqIcon(Check, props, false);
+ /** Medium IconCheckOutline artwork with a 1.3px stroke. */
+-const IconCheckOutlineMedium = (props) => jsx(IconCheckOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCheckOutlineMedium = (props) => hqIcon(Check, props, false);
+ const IconBranchOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -470,15 +436,9 @@ const IconBranchOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs
+ 	]
+ });
+ /** Regular one-pixel IconBranchOutline artwork. */
+-const IconBranchOutlineRegular = (props) => jsx(IconBranchOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconBranchOutlineRegular = (props) => hqIcon(GitBranch, props, false);
+ /** Medium IconBranchOutline artwork with a 1.3px stroke. */
+-const IconBranchOutlineMedium = (props) => jsx(IconBranchOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconBranchOutlineMedium = (props) => hqIcon(GitBranch, props, false);
+ const IconChevronDownOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -494,15 +454,9 @@ const IconChevronDownOutlineArtwork = ({ size = 14, className, strokeWidth }) =>
+ 	})
+ });
+ /** Regular one-pixel IconChevronDownOutline artwork. */
+-const IconChevronDownOutlineRegular = (props) => jsx(IconChevronDownOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconChevronDownOutlineRegular = (props) => hqIcon(ChevronDown, props, false);
+ /** Medium IconChevronDownOutline artwork with a 1.3px stroke. */
+-const IconChevronDownOutlineMedium = (props) => jsx(IconChevronDownOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconChevronDownOutlineMedium = (props) => hqIcon(ChevronDown, props, false);
+ const IconChevronLeftOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -518,15 +472,9 @@ const IconChevronLeftOutlineArtwork = ({ size = 14, className, strokeWidth }) =>
+ 	})
+ });
+ /** Regular one-pixel IconChevronLeftOutline artwork. */
+-const IconChevronLeftOutlineRegular = (props) => jsx(IconChevronLeftOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconChevronLeftOutlineRegular = (props) => hqIcon(ChevronLeft, props, false);
+ /** Medium IconChevronLeftOutline artwork with a 1.3px stroke. */
+-const IconChevronLeftOutlineMedium = (props) => jsx(IconChevronLeftOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconChevronLeftOutlineMedium = (props) => hqIcon(ChevronLeft, props, false);
+ const IconChevronRightOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -542,15 +490,9 @@ const IconChevronRightOutlineArtwork = ({ size = 14, className, strokeWidth }) =
+ 	})
+ });
+ /** Regular one-pixel IconChevronRightOutline artwork. */
+-const IconChevronRightOutlineRegular = (props) => jsx(IconChevronRightOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconChevronRightOutlineRegular = (props) => hqIcon(ChevronRight, props, false);
+ /** Medium IconChevronRightOutline artwork with a 1.3px stroke. */
+-const IconChevronRightOutlineMedium = (props) => jsx(IconChevronRightOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconChevronRightOutlineMedium = (props) => hqIcon(ChevronRight, props, false);
+ const IconTriangleRightFillArtwork = ({ size = 14, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -566,15 +508,9 @@ const IconTriangleRightFillArtwork = ({ size = 14, className, strokeWidth }) =>
+ 	})
+ });
+ /** Regular IconTriangleRightFill artwork; its fill-only geometry is weight-independent. */
+-const IconTriangleRightFillRegular = (props) => jsx(IconTriangleRightFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconTriangleRightFillRegular = (props) => hqIcon(ChevronRight, props, false);
+ /** Medium IconTriangleRightFill artwork; it matches Regular because the geometry is fill-only. */
+-const IconTriangleRightFillMedium = (props) => jsx(IconTriangleRightFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconTriangleRightFillMedium = (props) => hqIcon(ChevronRight, props, false);
+ const IconChevronUpOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -590,15 +526,9 @@ const IconChevronUpOutlineArtwork = ({ size = 14, className, strokeWidth }) => j
+ 	})
+ });
+ /** Regular one-pixel IconChevronUpOutline artwork. */
+-const IconChevronUpOutlineRegular = (props) => jsx(IconChevronUpOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconChevronUpOutlineRegular = (props) => hqIcon(ChevronUp, props, false);
+ /** Medium IconChevronUpOutline artwork with a 1.3px stroke. */
+-const IconChevronUpOutlineMedium = (props) => jsx(IconChevronUpOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconChevronUpOutlineMedium = (props) => hqIcon(ChevronUp, props, false);
+ const IconCloseOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -617,15 +547,9 @@ const IconCloseOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	})]
+ });
+ /** Regular one-pixel IconCloseOutline artwork. */
+-const IconCloseOutlineRegular = (props) => jsx(IconCloseOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCloseOutlineRegular = (props) => hqIcon(X, props, false);
+ /** Medium IconCloseOutline artwork with a 1.3px stroke. */
+-const IconCloseOutlineMedium = (props) => jsx(IconCloseOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCloseOutlineMedium = (props) => hqIcon(X, props, false);
+ const IconCloseFillArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -644,15 +568,9 @@ const IconCloseFillArtwork = ({ size = 14, className, strokeWidth }) => jsxs("sv
+ 	})]
+ });
+ /** Regular one-pixel IconCloseFill artwork. */
+-const IconCloseFillRegular = (props) => jsx(IconCloseFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCloseFillRegular = (props) => hqIcon(X, props, false);
+ /** Medium IconCloseFill artwork with a 1.3px stroke. */
+-const IconCloseFillMedium = (props) => jsx(IconCloseFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCloseFillMedium = (props) => hqIcon(X, props, false);
+ const IconCloseCircleFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -670,15 +588,9 @@ const IconCloseCircleFillArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	})
+ });
+ /** Regular IconCloseCircleFill artwork (cross knocked out of a filled disc); its fill-only geometry is weight-independent. */
+-const IconCloseCircleFillRegular = (props) => jsx(IconCloseCircleFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCloseCircleFillRegular = (props) => hqIcon(CircleX, props, false);
+ /** Medium IconCloseCircleFill artwork; it matches Regular because the geometry is fill-only. */
+-const IconCloseCircleFillMedium = (props) => jsx(IconCloseCircleFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCloseCircleFillMedium = (props) => hqIcon(CircleX, props, false);
+ const IconCopyOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -701,15 +613,9 @@ const IconCopyOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconCopyOutline artwork. */
+-const IconCopyOutlineRegular = (props) => jsx(IconCopyOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCopyOutlineRegular = (props) => hqIcon(Copy, props, false);
+ /** Medium IconCopyOutline artwork with a 1.3px stroke. */
+-const IconCopyOutlineMedium = (props) => jsx(IconCopyOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCopyOutlineMedium = (props) => hqIcon(Copy, props, false);
+ const IconRefreshOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -728,15 +634,9 @@ const IconRefreshOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	})]
+ });
+ /** Regular one-pixel IconRefreshOutline artwork. */
+-const IconRefreshOutlineRegular = (props) => jsx(IconRefreshOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconRefreshOutlineRegular = (props) => hqIcon(RefreshCw, props, false);
+ /** Medium IconRefreshOutline artwork with a 1.3px stroke. */
+-const IconRefreshOutlineMedium = (props) => jsx(IconRefreshOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconRefreshOutlineMedium = (props) => hqIcon(RefreshCw, props, false);
+ const IconLikeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -752,15 +652,9 @@ const IconLikeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("s
+ 	})
+ });
+ /** Regular one-pixel IconLikeOutline artwork. */
+-const IconLikeOutlineRegular = (props) => jsx(IconLikeOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconLikeOutlineRegular = (props) => hqIcon(ThumbsUp, props, false);
+ /** Medium IconLikeOutline artwork with a 1.3px stroke. */
+-const IconLikeOutlineMedium = (props) => jsx(IconLikeOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconLikeOutlineMedium = (props) => hqIcon(ThumbsUp, props, false);
+ const IconLikeFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -777,15 +671,9 @@ const IconLikeFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg"
+ 	})
+ });
+ /** Regular one-pixel IconLikeFill artwork. */
+-const IconLikeFillRegular = (props) => jsx(IconLikeFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconLikeFillRegular = (props) => hqIcon(ThumbsUp, props, true);
+ /** Medium IconLikeFill artwork with a 1.3px stroke. */
+-const IconLikeFillMedium = (props) => jsx(IconLikeFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconLikeFillMedium = (props) => hqIcon(ThumbsUp, props, true);
+ const IconDislikeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -801,15 +689,9 @@ const IconDislikeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	})
+ });
+ /** Regular one-pixel IconDislikeOutline artwork. */
+-const IconDislikeOutlineRegular = (props) => jsx(IconDislikeOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDislikeOutlineRegular = (props) => hqIcon(ThumbsDown, props, false);
+ /** Medium IconDislikeOutline artwork with a 1.3px stroke. */
+-const IconDislikeOutlineMedium = (props) => jsx(IconDislikeOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDislikeOutlineMedium = (props) => hqIcon(ThumbsDown, props, false);
+ const IconDislikeFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -826,15 +708,9 @@ const IconDislikeFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("s
+ 	})
+ });
+ /** Regular one-pixel IconDislikeFill artwork. */
+-const IconDislikeFillRegular = (props) => jsx(IconDislikeFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDislikeFillRegular = (props) => hqIcon(ThumbsDown, props, true);
+ /** Medium IconDislikeFill artwork with a 1.3px stroke. */
+-const IconDislikeFillMedium = (props) => jsx(IconDislikeFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDislikeFillMedium = (props) => hqIcon(ThumbsDown, props, true);
+ const IconShareOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -850,15 +726,9 @@ const IconShareOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("
+ 	})
+ });
+ /** Regular one-pixel IconShareOutline artwork. */
+-const IconShareOutlineRegular = (props) => jsx(IconShareOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconShareOutlineRegular = (props) => hqIcon(Share2, props, false);
+ /** Medium IconShareOutline artwork with a 1.3px stroke. */
+-const IconShareOutlineMedium = (props) => jsx(IconShareOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconShareOutlineMedium = (props) => hqIcon(Share2, props, false);
+ const IconDeliverDocArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -892,15 +762,9 @@ const IconDeliverDocArtwork = ({ size = 16, className, strokeWidth }) => jsxs("s
+ 	]
+ });
+ /** Regular one-pixel IconDeliverDoc artwork. */
+-const IconDeliverDocRegular = (props) => jsx(IconDeliverDocArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDeliverDocRegular = (props) => hqIcon(FileText, props, false);
+ /** Medium IconDeliverDoc artwork with a 1.3px stroke. */
+-const IconDeliverDocMedium = (props) => jsx(IconDeliverDocArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDeliverDocMedium = (props) => hqIcon(FileText, props, false);
+ const IconEditOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -919,15 +783,9 @@ const IconEditOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconEditOutline artwork. */
+-const IconEditOutlineRegular = (props) => jsx(IconEditOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconEditOutlineRegular = (props) => hqIcon(Pencil, props, false);
+ /** Medium IconEditOutline artwork with a 1.3px stroke. */
+-const IconEditOutlineMedium = (props) => jsx(IconEditOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconEditOutlineMedium = (props) => hqIcon(Pencil, props, false);
+ const IconThinkOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -953,15 +811,9 @@ const IconThinkOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconThinkOutline artwork. */
+-const IconThinkOutlineRegular = (props) => jsx(IconThinkOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconThinkOutlineRegular = (props) => hqIcon(Brain, props, false);
+ /** Medium IconThinkOutline artwork with a 1.3px stroke. */
+-const IconThinkOutlineMedium = (props) => jsx(IconThinkOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconThinkOutlineMedium = (props) => hqIcon(Brain, props, false);
+ const IconAgentPresetOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -991,25 +843,13 @@ const IconAgentPresetOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	]
+ });
+ /** Regular one-pixel IconAgentPresetOutline artwork. */
+-const IconAgentPresetOutlineRegular = (props) => jsx(IconAgentPresetOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconAgentPresetOutlineRegular = (props) => hqIcon(Bot, props, false);
+ /** Medium IconAgentPresetOutline artwork with a 1.3px stroke. */
+-const IconAgentPresetOutlineMedium = (props) => jsx(IconAgentPresetOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconAgentPresetOutlineMedium = (props) => hqIcon(Bot, props, false);
+ /** Regular one-pixel IconBrowseOutline artwork. */
+-const IconBrowseOutlineRegular = (props) => jsx(BrowseOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconBrowseOutlineRegular = (props) => hqIcon(Globe, props, false);
+ /** Medium IconBrowseOutline artwork with a 1.3px stroke. */
+-const IconBrowseOutlineMedium = (props) => jsx(BrowseOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconBrowseOutlineMedium = (props) => hqIcon(Globe, props, false);
+ const IconContextInjectionOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1039,15 +879,9 @@ const IconContextInjectionOutlineArtwork = ({ size = 16, className, strokeWidth
+ 	]
+ });
+ /** Regular one-pixel IconContextInjectionOutline artwork. */
+-const IconContextInjectionOutlineRegular = (props) => jsx(IconContextInjectionOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconContextInjectionOutlineRegular = (props) => hqIcon(FileInput, props, false);
+ /** Medium IconContextInjectionOutline artwork with a 1.3px stroke. */
+-const IconContextInjectionOutlineMedium = (props) => jsx(IconContextInjectionOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconContextInjectionOutlineMedium = (props) => hqIcon(FileInput, props, false);
+ const IconLinkOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1066,15 +900,9 @@ const IconLinkOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconLinkOutline artwork. */
+-const IconLinkOutlineRegular = (props) => jsx(IconLinkOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconLinkOutlineRegular = (props) => hqIcon(Link, props, false);
+ /** Medium IconLinkOutline artwork with a 1.3px stroke. */
+-const IconLinkOutlineMedium = (props) => jsx(IconLinkOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconLinkOutlineMedium = (props) => hqIcon(Link, props, false);
+ const IconRightUpOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1093,15 +921,9 @@ const IconRightUpOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	})]
+ });
+ /** Regular one-pixel IconRightUpOutline artwork. */
+-const IconRightUpOutlineRegular = (props) => jsx(IconRightUpOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconRightUpOutlineRegular = (props) => hqIcon(ArrowUpRight, props, false);
+ /** Medium IconRightUpOutline artwork with a 1.3px stroke. */
+-const IconRightUpOutlineMedium = (props) => jsx(IconRightUpOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconRightUpOutlineMedium = (props) => hqIcon(ArrowUpRight, props, false);
+ const IconEnhanceOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1131,15 +953,9 @@ const IconEnhanceOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	]
+ });
+ /** Regular one-pixel IconEnhanceOutline artwork. */
+-const IconEnhanceOutlineRegular = (props) => jsx(IconEnhanceOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconEnhanceOutlineRegular = (props) => hqIcon(WandSparkles, props, false);
+ /** Medium IconEnhanceOutline artwork with a 1.3px stroke. */
+-const IconEnhanceOutlineMedium = (props) => jsx(IconEnhanceOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconEnhanceOutlineMedium = (props) => hqIcon(WandSparkles, props, false);
+ const IconTrashOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1173,15 +989,9 @@ const IconTrashOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconTrashOutline artwork. */
+-const IconTrashOutlineRegular = (props) => jsx(IconTrashOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconTrashOutlineRegular = (props) => hqIcon(Trash2, props, false);
+ /** Medium IconTrashOutline artwork with a 1.3px stroke. */
+-const IconTrashOutlineMedium = (props) => jsx(IconTrashOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconTrashOutlineMedium = (props) => hqIcon(Trash2, props, false);
+ const IconWarningOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1207,15 +1017,9 @@ const IconWarningOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	]
+ });
+ /** Regular one-pixel IconWarningOutline artwork. */
+-const IconWarningOutlineRegular = (props) => jsx(IconWarningOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconWarningOutlineRegular = (props) => hqIcon(CircleAlert, props, false);
+ /** Medium IconWarningOutline artwork with a 1.3px stroke. */
+-const IconWarningOutlineMedium = (props) => jsx(IconWarningOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconWarningOutlineMedium = (props) => hqIcon(CircleAlert, props, false);
+ const IconCheckCircleFillArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1234,15 +1038,9 @@ const IconCheckCircleFillArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	})]
+ });
+ /** Regular IconCheckCircleFill artwork (circled check); its fill-only geometry is weight-independent. */
+-const IconCheckCircleFillRegular = (props) => jsx(IconCheckCircleFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCheckCircleFillRegular = (props) => hqIcon(CircleCheckBig, props, false);
+ /** Medium IconCheckCircleFill artwork; it matches Regular because the geometry is fill-only. */
+-const IconCheckCircleFillMedium = (props) => jsx(IconCheckCircleFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCheckCircleFillMedium = (props) => hqIcon(CircleCheckBig, props, false);
+ const IconWarningTriangleOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1263,15 +1061,9 @@ const IconWarningTriangleOutlineArtwork = ({ size = 16, className, strokeWidth }
+ 	})]
+ });
+ /** Regular rounded warning triangle with an exclamation mark. */
+-const IconWarningTriangleOutlineRegular = (props) => jsx(IconWarningTriangleOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconWarningTriangleOutlineRegular = (props) => hqIcon(TriangleAlert, props, false);
+ /** Medium rounded warning triangle with an exclamation mark. */
+-const IconWarningTriangleOutlineMedium = (props) => jsx(IconWarningTriangleOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconWarningTriangleOutlineMedium = (props) => hqIcon(TriangleAlert, props, false);
+ const IconUserOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1290,15 +1082,9 @@ const IconUserOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconUserOutline artwork. */
+-const IconUserOutlineRegular = (props) => jsx(IconUserOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconUserOutlineRegular = (props) => hqIcon(User, props, false);
+ /** Medium IconUserOutline artwork with a 1.3px stroke. */
+-const IconUserOutlineMedium = (props) => jsx(IconUserOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconUserOutlineMedium = (props) => hqIcon(User, props, false);
+ const IconUsersOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1328,15 +1114,9 @@ const IconUsersOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconUsersOutline artwork: a front person with a second person behind. */
+-const IconUsersOutlineRegular = (props) => jsx(IconUsersOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconUsersOutlineRegular = (props) => hqIcon(Users, props, false);
+ /** Medium IconUsersOutline artwork with a 1.3px stroke. */
+-const IconUsersOutlineMedium = (props) => jsx(IconUsersOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconUsersOutlineMedium = (props) => hqIcon(Users, props, false);
+ const IconPaperPlaneOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1355,15 +1135,9 @@ const IconPaperPlaneOutlineArtwork = ({ size = 14, className, strokeWidth }) =>
+ 	})]
+ });
+ /** Regular one-pixel IconPaperPlaneOutline artwork. */
+-const IconPaperPlaneOutlineRegular = (props) => jsx(IconPaperPlaneOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPaperPlaneOutlineRegular = (props) => hqIcon(Send, props, false);
+ /** Medium IconPaperPlaneOutline artwork with a 1.3px stroke. */
+-const IconPaperPlaneOutlineMedium = (props) => jsx(IconPaperPlaneOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPaperPlaneOutlineMedium = (props) => hqIcon(Send, props, false);
+ const IconStopFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1379,15 +1153,9 @@ const IconStopFillArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg"
+ 	})
+ });
+ /** Regular IconStopFill artwork; its fill-only geometry is weight-independent. */
+-const IconStopFillRegular = (props) => jsx(IconStopFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconStopFillRegular = (props) => hqIcon(Square, props, true);
+ /** Medium IconStopFill artwork; it matches Regular because the geometry is fill-only. */
+-const IconStopFillMedium = (props) => jsx(IconStopFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconStopFillMedium = (props) => hqIcon(Square, props, true);
+ const IconPaperclipOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1403,15 +1171,9 @@ const IconPaperclipOutlineArtwork = ({ size = 16, className, strokeWidth }) => j
+ 	})
+ });
+ /** Regular one-pixel IconPaperclipOutline artwork. */
+-const IconPaperclipOutlineRegular = (props) => jsx(IconPaperclipOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPaperclipOutlineRegular = (props) => hqIcon(Paperclip, props, false);
+ /** Medium IconPaperclipOutline artwork with a 1.3px stroke. */
+-const IconPaperclipOutlineMedium = (props) => jsx(IconPaperclipOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPaperclipOutlineMedium = (props) => hqIcon(Paperclip, props, false);
+ const IconLoadingOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1427,15 +1189,9 @@ const IconLoadingOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	})
+ });
+ /** Regular one-pixel IconLoadingOutline artwork. */
+-const IconLoadingOutlineRegular = (props) => jsx(IconLoadingOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconLoadingOutlineRegular = (props) => hqIcon(LoaderCircle, props, false);
+ /** Medium IconLoadingOutline artwork with a 1.3px stroke. */
+-const IconLoadingOutlineMedium = (props) => jsx(IconLoadingOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconLoadingOutlineMedium = (props) => hqIcon(LoaderCircle, props, false);
+ const IconDownloadOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1461,15 +1217,9 @@ const IconDownloadOutlineArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	]
+ });
+ /** Regular one-pixel IconDownloadOutline artwork. */
+-const IconDownloadOutlineRegular = (props) => jsx(IconDownloadOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDownloadOutlineRegular = (props) => hqIcon(Download, props, false);
+ /** Medium IconDownloadOutline artwork with a 1.3px stroke. */
+-const IconDownloadOutlineMedium = (props) => jsx(IconDownloadOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDownloadOutlineMedium = (props) => hqIcon(Download, props, false);
+ const IconPlayOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1488,15 +1238,9 @@ const IconPlayOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconPlayOutline artwork. */
+-const IconPlayOutlineRegular = (props) => jsx(IconPlayOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPlayOutlineRegular = (props) => hqIcon(Play, props, false);
+ /** Medium IconPlayOutline artwork with a 1.3px stroke. */
+-const IconPlayOutlineMedium = (props) => jsx(IconPlayOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPlayOutlineMedium = (props) => hqIcon(Play, props, false);
+ const IconPauseOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1522,15 +1266,9 @@ const IconPauseOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconPauseOutline artwork. */
+-const IconPauseOutlineRegular = (props) => jsx(IconPauseOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPauseOutlineRegular = (props) => hqIcon(Pause, props, false);
+ /** Medium IconPauseOutline artwork with a 1.3px stroke. */
+-const IconPauseOutlineMedium = (props) => jsx(IconPauseOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPauseOutlineMedium = (props) => hqIcon(Pause, props, false);
+ const IconFullscreenOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1556,15 +1294,9 @@ const IconFullscreenOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	]
+ });
+ /** Regular one-pixel IconFullscreenOutline artwork. */
+-const IconFullscreenOutlineRegular = (props) => jsx(IconFullscreenOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconFullscreenOutlineRegular = (props) => hqIcon(Maximize, props, false);
+ /** Medium IconFullscreenOutline artwork with a 1.3px stroke. */
+-const IconFullscreenOutlineMedium = (props) => jsx(IconFullscreenOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconFullscreenOutlineMedium = (props) => hqIcon(Maximize, props, false);
+ const IconCodeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1594,15 +1326,9 @@ const IconCodeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	]
+ });
+ /** Regular one-pixel IconCodeOutline artwork. */
+-const IconCodeOutlineRegular = (props) => jsx(IconCodeOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCodeOutlineRegular = (props) => hqIcon(Code, props, false);
+ /** Medium IconCodeOutline artwork with a 1.3px stroke. */
+-const IconCodeOutlineMedium = (props) => jsx(IconCodeOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCodeOutlineMedium = (props) => hqIcon(Code, props, false);
+ const IconCordisPluginOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1623,15 +1349,9 @@ const IconCordisPluginOutlineArtwork = ({ size = 14, className, strokeWidth }) =
+ 	})]
+ });
+ /** Regular one-pixel IconCordisPluginOutline artwork. */
+-const IconCordisPluginOutlineRegular = (props) => jsx(IconCordisPluginOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCordisPluginOutlineRegular = (props) => hqIcon(Plug, props, false);
+ /** Medium IconCordisPluginOutline artwork with a 1.3px stroke. */
+-const IconCordisPluginOutlineMedium = (props) => jsx(IconCordisPluginOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCordisPluginOutlineMedium = (props) => hqIcon(Plug, props, false);
+ const IconApiOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1650,15 +1370,9 @@ const IconApiOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("s
+ 	})]
+ });
+ /** Regular one-pixel IconApiOutline artwork. */
+-const IconApiOutlineRegular = (props) => jsx(IconApiOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconApiOutlineRegular = (props) => hqIcon(Cable, props, false);
+ /** Medium IconApiOutline artwork with a 1.3px stroke. */
+-const IconApiOutlineMedium = (props) => jsx(IconApiOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconApiOutlineMedium = (props) => hqIcon(Cable, props, false);
+ const IconPersonalizationOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1702,15 +1416,9 @@ const IconPersonalizationOutlineArtwork = ({ size = 16, className, strokeWidth }
+ 	]
+ });
+ /** Regular one-pixel IconPersonalizationOutline artwork. */
+-const IconPersonalizationOutlineRegular = (props) => jsx(IconPersonalizationOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPersonalizationOutlineRegular = (props) => hqIcon(SlidersHorizontal, props, false);
+ /** Medium IconPersonalizationOutline artwork with a 1.3px stroke. */
+-const IconPersonalizationOutlineMedium = (props) => jsx(IconPersonalizationOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPersonalizationOutlineMedium = (props) => hqIcon(SlidersHorizontal, props, false);
+ const IconProjectAddOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1736,15 +1444,9 @@ const IconProjectAddOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	]
+ });
+ /** Regular one-pixel IconProjectAddOutline artwork. */
+-const IconProjectAddOutlineRegular = (props) => jsx(IconProjectAddOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconProjectAddOutlineRegular = (props) => hqIcon(FolderPlus, props, false);
+ /** Medium IconProjectAddOutline artwork with a 1.3px stroke. */
+-const IconProjectAddOutlineMedium = (props) => jsx(IconProjectAddOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconProjectAddOutlineMedium = (props) => hqIcon(FolderPlus, props, false);
+ const IconFolderOpenOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1763,15 +1465,9 @@ const IconFolderOpenOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	})]
+ });
+ /** Regular one-pixel IconFolderOpenOutline artwork. */
+-const IconFolderOpenOutlineRegular = (props) => jsx(IconFolderOpenOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconFolderOpenOutlineRegular = (props) => hqIcon(FolderOpen, props, false);
+ /** Medium IconFolderOpenOutline artwork with a 1.3px stroke. */
+-const IconFolderOpenOutlineMedium = (props) => jsx(IconFolderOpenOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconFolderOpenOutlineMedium = (props) => hqIcon(FolderOpen, props, false);
+ const IconFolderOpenArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1798,25 +1494,13 @@ const IconFolderOpenArtwork = ({ size = 16, className, strokeWidth }) => jsxs("s
+ 	]
+ });
+ /** Regular IconFolderOpen artwork; its fill-only geometry is weight-independent. */
+-const IconFolderOpenRegular = (props) => jsx(IconFolderOpenArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconFolderOpenRegular = (props) => hqIcon(FolderOpen, props, false);
+ /** Medium IconFolderOpen artwork; it matches Regular because the geometry is fill-only. */
+-const IconFolderOpenMedium = (props) => jsx(IconFolderOpenArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconFolderOpenMedium = (props) => hqIcon(FolderOpen, props, false);
+ /** Regular one-pixel IconFolderClose artwork. */
+-const IconFolderCloseRegular = (props) => jsx(FolderCloseArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconFolderCloseRegular = (props) => hqIcon(Folder, props, false);
+ /** Medium IconFolderClose artwork with a 1.3px stroke. */
+-const IconFolderCloseMedium = (props) => jsx(FolderCloseArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconFolderCloseMedium = (props) => hqIcon(Folder, props, false);
+ const IconTreeCornerArtwork = ({ size = 10, className, strokeWidth }) => jsx("svg", {
+ 	width: size * 8 / 10,
+ 	height: size,
+@@ -1832,15 +1516,9 @@ const IconTreeCornerArtwork = ({ size = 10, className, strokeWidth }) => jsx("sv
+ 	})
+ });
+ /** Regular one-pixel IconTreeCorner artwork. */
+-const IconTreeCornerRegular = (props) => jsx(IconTreeCornerArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconTreeCornerRegular = (props) => hqIcon(CornerDownRight, { size: 10, ...props }, false);
+ /** Medium IconTreeCorner artwork with a 1.3px stroke. */
+-const IconTreeCornerMedium = (props) => jsx(IconTreeCornerArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconTreeCornerMedium = (props) => hqIcon(CornerDownRight, { size: 10, ...props }, false);
+ const IconLightOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1890,15 +1568,9 @@ const IconLightOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconLightOutline artwork. */
+-const IconLightOutlineRegular = (props) => jsx(IconLightOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconLightOutlineRegular = (props) => hqIcon(Sun, props, false);
+ /** Medium IconLightOutline artwork with a 1.3px stroke. */
+-const IconLightOutlineMedium = (props) => jsx(IconLightOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconLightOutlineMedium = (props) => hqIcon(Sun, props, false);
+ const IconDarkOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1914,15 +1586,9 @@ const IconDarkOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("s
+ 	})
+ });
+ /** Regular one-pixel IconDarkOutline artwork. */
+-const IconDarkOutlineRegular = (props) => jsx(IconDarkOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDarkOutlineRegular = (props) => hqIcon(Moon, props, false);
+ /** Medium IconDarkOutline artwork with a 1.3px stroke. */
+-const IconDarkOutlineMedium = (props) => jsx(IconDarkOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDarkOutlineMedium = (props) => hqIcon(Moon, props, false);
+ const IconFollowsystemOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1941,15 +1607,9 @@ const IconFollowsystemOutlineArtwork = ({ size = 16, className, strokeWidth }) =
+ 	})]
+ });
+ /** Regular one-pixel IconFollowsystemOutline artwork. */
+-const IconFollowsystemOutlineRegular = (props) => jsx(IconFollowsystemOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconFollowsystemOutlineRegular = (props) => hqIcon(Monitor, props, false);
+ /** Medium IconFollowsystemOutline artwork with a 1.3px stroke. */
+-const IconFollowsystemOutlineMedium = (props) => jsx(IconFollowsystemOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconFollowsystemOutlineMedium = (props) => hqIcon(Monitor, props, false);
+ const IconDataOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -1969,15 +1629,9 @@ const IconDataOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconDataOutline artwork. */
+-const IconDataOutlineRegular = (props) => jsx(IconDataOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDataOutlineRegular = (props) => hqIcon(ChartNoAxesCombined, props, false);
+ /** Medium IconDataOutline artwork with a 1.3px stroke. */
+-const IconDataOutlineMedium = (props) => jsx(IconDataOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDataOutlineMedium = (props) => hqIcon(ChartNoAxesCombined, props, false);
+ const IconDatabaseOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2011,15 +1665,9 @@ const IconDatabaseOutlineArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	]
+ });
+ /** Regular one-pixel IconDatabaseOutline artwork. */
+-const IconDatabaseOutlineRegular = (props) => jsx(IconDatabaseOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconDatabaseOutlineRegular = (props) => hqIcon(Database, props, false);
+ /** Medium IconDatabaseOutline artwork with a 1.3px stroke. */
+-const IconDatabaseOutlineMedium = (props) => jsx(IconDatabaseOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconDatabaseOutlineMedium = (props) => hqIcon(Database, props, false);
+ const IconClockOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2038,15 +1686,9 @@ const IconClockOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	})]
+ });
+ /** Regular one-pixel IconClockOutline artwork. */
+-const IconClockOutlineRegular = (props) => jsx(IconClockOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconClockOutlineRegular = (props) => hqIcon(Clock, props, false);
+ /** Medium IconClockOutline artwork with a 1.3px stroke. */
+-const IconClockOutlineMedium = (props) => jsx(IconClockOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconClockOutlineMedium = (props) => hqIcon(Clock, props, false);
+ const IconGaugeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2072,15 +1714,9 @@ const IconGaugeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconGaugeOutline artwork. */
+-const IconGaugeOutlineRegular = (props) => jsx(IconGaugeOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconGaugeOutlineRegular = (props) => hqIcon(Gauge, props, false);
+ /** Medium IconGaugeOutline artwork with a 1.3px stroke. */
+-const IconGaugeOutlineMedium = (props) => jsx(IconGaugeOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconGaugeOutlineMedium = (props) => hqIcon(Gauge, props, false);
+ const IconSendOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2099,29 +1735,17 @@ const IconSendOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("
+ 	})]
+ });
+ /** Regular one-pixel IconSendOutline artwork. */
+-const IconSendOutlineRegular = (props) => jsx(IconSendOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconSendOutlineRegular = (props) => hqIcon(ArrowUp, props, false);
+ /** Medium IconSendOutline artwork with a 1.3px stroke. */
+-const IconSendOutlineMedium = (props) => jsx(IconSendOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconSendOutlineMedium = (props) => hqIcon(ArrowUp, props, false);
+ const IconQueueOutlineArtwork = ({ size = 14, ...rest }) => jsx(ChatLinesOutlineArtwork, {
+ 	size,
+ 	...rest
+ });
+ /** Regular one-pixel IconQueueOutline artwork. */
+-const IconQueueOutlineRegular = (props) => jsx(IconQueueOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconQueueOutlineRegular = (props) => hqIcon(ListOrdered, props, false);
+ /** Medium IconQueueOutline artwork with a 1.3px stroke. */
+-const IconQueueOutlineMedium = (props) => jsx(IconQueueOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconQueueOutlineMedium = (props) => hqIcon(ListOrdered, props, false);
+ const IconChecklistOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2151,15 +1775,9 @@ const IconChecklistOutlineArtwork = ({ size = 14, className, strokeWidth }) => j
+ 	]
+ });
+ /** Regular one-pixel IconChecklistOutline artwork. */
+-const IconChecklistOutlineRegular = (props) => jsx(IconChecklistOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconChecklistOutlineRegular = (props) => hqIcon(ListChecks, props, false);
+ /** Medium IconChecklistOutline artwork with a 1.3px stroke. */
+-const IconChecklistOutlineMedium = (props) => jsx(IconChecklistOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconChecklistOutlineMedium = (props) => hqIcon(ListChecks, props, false);
+ const IconListPenOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2193,15 +1811,9 @@ const IconListPenOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	]
+ });
+ /** Regular one-pixel IconListPenOutline artwork. */
+-const IconListPenOutlineRegular = (props) => jsx(IconListPenOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconListPenOutlineRegular = (props) => hqIcon(ListTodo, props, false);
+ /** Medium IconListPenOutline artwork with a 1.3px stroke. */
+-const IconListPenOutlineMedium = (props) => jsx(IconListPenOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconListPenOutlineMedium = (props) => hqIcon(ListTodo, props, false);
+ const IconGoalOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2231,15 +1843,9 @@ const IconGoalOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("
+ 	]
+ });
+ /** Regular one-pixel IconGoalOutline artwork. */
+-const IconGoalOutlineRegular = (props) => jsx(IconGoalOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconGoalOutlineRegular = (props) => hqIcon(Target, props, false);
+ /** Medium IconGoalOutline artwork with a 1.3px stroke. */
+-const IconGoalOutlineMedium = (props) => jsx(IconGoalOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconGoalOutlineMedium = (props) => hqIcon(Target, props, false);
+ const IconSparkleArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2265,27 +1871,13 @@ const IconSparkleArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg"
+ 	]
+ });
+ /** Regular one-pixel IconSparkle artwork. */
+-const IconSparkleRegular = (props) => jsx(IconSparkleArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconSparkleRegular = (props) => hqIcon(Sparkles, props, false);
+ /** Medium IconSparkle artwork with a 1.3px stroke. */
+-const IconSparkleMedium = (props) => jsx(IconSparkleArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconSparkleMedium = (props) => hqIcon(Sparkles, props, false);
+ /** Regular one-pixel IconInspectOutline artwork. */
+-const IconInspectOutlineRegular = (props) => jsx(CodeBracketsArtwork, {
+-	...props,
+-	size: props.size ?? 12,
+-	strokeWidth: 1
+-});
++const IconInspectOutlineRegular = (props) => hqIcon(ScanSearch, props, false);
+ /** Medium IconInspectOutline artwork with a 1.3px stroke. */
+-const IconInspectOutlineMedium = (props) => jsx(CodeBracketsArtwork, {
+-	...props,
+-	size: props.size ?? 12,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconInspectOutlineMedium = (props) => hqIcon(ScanSearch, props, false);
+ const IconSkillOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2315,15 +1907,9 @@ const IconSkillOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs(
+ 	]
+ });
+ /** Regular one-pixel IconSkillOutline artwork. */
+-const IconSkillOutlineRegular = (props) => jsx(IconSkillOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconSkillOutlineRegular = (props) => hqIcon(Zap, props, false);
+ /** Medium IconSkillOutline artwork with a 1.3px stroke. */
+-const IconSkillOutlineMedium = (props) => jsx(IconSkillOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconSkillOutlineMedium = (props) => hqIcon(Zap, props, false);
+ const IconQuestionOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2349,15 +1935,9 @@ const IconQuestionOutlineArtwork = ({ size = 14, className, strokeWidth }) => js
+ 	]
+ });
+ /** Regular one-pixel IconQuestionOutline artwork. */
+-const IconQuestionOutlineRegular = (props) => jsx(IconQuestionOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconQuestionOutlineRegular = (props) => hqIcon(CircleHelp, props, false);
+ /** Medium IconQuestionOutline artwork with a 1.3px stroke. */
+-const IconQuestionOutlineMedium = (props) => jsx(IconQuestionOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconQuestionOutlineMedium = (props) => hqIcon(CircleHelp, props, false);
+ const IconInfoOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2383,15 +1963,9 @@ const IconInfoOutlineArtwork = ({ size = 14, className, strokeWidth }) => jsxs("
+ 	]
+ });
+ /** Regular IconInfoOutline artwork; its fill-only geometry is weight-independent. */
+-const IconInfoOutlineRegular = (props) => jsx(IconInfoOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconInfoOutlineRegular = (props) => hqIcon(Info, props, false);
+ /** Medium IconInfoOutline artwork; its fill-only geometry is weight-independent. */
+-const IconInfoOutlineMedium = (props) => jsx(IconInfoOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconInfoOutlineMedium = (props) => hqIcon(Info, props, false);
+ const IconPluginPinwheelOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2421,15 +1995,9 @@ const IconPluginPinwheelOutlineArtwork = ({ size = 16, className, strokeWidth })
+ 	]
+ });
+ /** Regular one-pixel plugin pinwheel artwork. */
+-const IconPluginPinwheelOutlineRegular = (props) => jsx(IconPluginPinwheelOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPluginPinwheelOutlineRegular = (props) => hqIcon(Puzzle, props, false);
+ /** Medium plugin pinwheel artwork with a 1.3px stroke. */
+-const IconPluginPinwheelOutlineMedium = (props) => jsx(IconPluginPinwheelOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPluginPinwheelOutlineMedium = (props) => hqIcon(Puzzle, props, false);
+ const IconAlarmClockOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2467,15 +2035,9 @@ const IconAlarmClockOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	]
+ });
+ /** Regular one-pixel IconAlarmClockOutline artwork. */
+-const IconAlarmClockOutlineRegular = (props) => jsx(IconAlarmClockOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconAlarmClockOutlineRegular = (props) => hqIcon(AlarmClock, props, false);
+ /** Medium IconAlarmClockOutline artwork with a 1.3px stroke. */
+-const IconAlarmClockOutlineMedium = (props) => jsx(IconAlarmClockOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconAlarmClockOutlineMedium = (props) => hqIcon(AlarmClock, props, false);
+ const IconArchiveOutlineArtwork = ({ size = 20, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2501,15 +2063,9 @@ const IconArchiveOutlineArtwork = ({ size = 20, className, strokeWidth }) => jsx
+ 	]
+ });
+ /** Regular one-pixel IconArchiveOutline artwork. */
+-const IconArchiveOutlineRegular = (props) => jsx(IconArchiveOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconArchiveOutlineRegular = (props) => hqIcon(Archive, props, false);
+ /** Medium IconArchiveOutline artwork with a 1.3px stroke. */
+-const IconArchiveOutlineMedium = (props) => jsx(IconArchiveOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconArchiveOutlineMedium = (props) => hqIcon(Archive, props, false);
+ const IconWrapLinesOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2543,15 +2099,9 @@ const IconWrapLinesOutlineArtwork = ({ size = 16, className, strokeWidth }) => j
+ 	]
+ });
+ /** Regular one-pixel IconWrapLinesOutline artwork. */
+-const IconWrapLinesOutlineRegular = (props) => jsx(IconWrapLinesOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconWrapLinesOutlineRegular = (props) => hqIcon(WrapText, props, false);
+ /** Medium IconWrapLinesOutline artwork with a 1.3px stroke. */
+-const IconWrapLinesOutlineMedium = (props) => jsx(IconWrapLinesOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconWrapLinesOutlineMedium = (props) => hqIcon(WrapText, props, false);
+ const IconNowrapFillArtwork = ({ size = 16, className }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2576,9 +2126,9 @@ const IconNowrapFillArtwork = ({ size = 16, className }) => jsxs("svg", {
+ 	]
+ });
+ /** Regular IconNowrapFill artwork; fill-only weights render identically. */
+-const IconNowrapFillRegular = (props) => jsx(IconNowrapFillArtwork, { ...props });
++const IconNowrapFillRegular = (props) => hqIcon(AlignLeft, props, false);
+ /** Medium IconNowrapFill artwork; fill-only weights render identically. */
+-const IconNowrapFillMedium = (props) => jsx(IconNowrapFillArtwork, { ...props });
++const IconNowrapFillMedium = (props) => hqIcon(AlignLeft, props, false);
+ const IconWrapFillArtwork = ({ size = 16, className }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2603,9 +2153,9 @@ const IconWrapFillArtwork = ({ size = 16, className }) => jsxs("svg", {
+ 	]
+ });
+ /** Regular IconWrapFill artwork; fill-only weights render identically. */
+-const IconWrapFillRegular = (props) => jsx(IconWrapFillArtwork, { ...props });
++const IconWrapFillRegular = (props) => hqIcon(WrapText, props, false);
+ /** Medium IconWrapFill artwork; fill-only weights render identically. */
+-const IconWrapFillMedium = (props) => jsx(IconWrapFillArtwork, { ...props });
++const IconWrapFillMedium = (props) => hqIcon(WrapText, props, false);
+ const IconCompareSplitOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2624,29 +2174,17 @@ const IconCompareSplitOutlineArtwork = ({ size = 16, className, strokeWidth }) =
+ 	})]
+ });
+ /** Regular one-pixel IconCompareSplitOutline artwork. */
+-const IconCompareSplitOutlineRegular = (props) => jsx(IconCompareSplitOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCompareSplitOutlineRegular = (props) => hqIcon(Columns2, props, false);
+ /** Medium IconCompareSplitOutline artwork with a 1.3px stroke. */
+-const IconCompareSplitOutlineMedium = (props) => jsx(IconCompareSplitOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCompareSplitOutlineMedium = (props) => hqIcon(Columns2, props, false);
+ const IconPlanOutlineArtwork = (props) => jsx(IconListPenOutlineArtwork, {
+ 	...props,
+ 	size: props.size ?? 14
+ });
+ /** Regular one-pixel IconPlanOutline artwork. */
+-const IconPlanOutlineRegular = (props) => jsx(IconPlanOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPlanOutlineRegular = (props) => hqIcon(ListChecks, props, false);
+ /** Medium IconPlanOutline artwork with a 1.3px stroke. */
+-const IconPlanOutlineMedium = (props) => jsx(IconPlanOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPlanOutlineMedium = (props) => hqIcon(ListChecks, props, false);
+ const IconCompactOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2666,15 +2204,9 @@ const IconCompactOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx
+ 	})]
+ });
+ /** Regular one-pixel IconCompactOutline artwork. */
+-const IconCompactOutlineRegular = (props) => jsx(IconCompactOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCompactOutlineRegular = (props) => hqIcon(Minimize2, props, false);
+ /** Medium IconCompactOutline artwork with a 1.3px stroke. */
+-const IconCompactOutlineMedium = (props) => jsx(IconCompactOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCompactOutlineMedium = (props) => hqIcon(Minimize2, props, false);
+ const IconShieldOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2691,15 +2223,9 @@ const IconShieldOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsx(
+ 	})
+ });
+ /** Regular one-pixel IconShieldOutline artwork. */
+-const IconShieldOutlineRegular = (props) => jsx(IconShieldOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconShieldOutlineRegular = (props) => hqIcon(Shield, props, false);
+ /** Medium IconShieldOutline artwork with a 1.3px stroke. */
+-const IconShieldOutlineMedium = (props) => jsx(IconShieldOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconShieldOutlineMedium = (props) => hqIcon(Shield, props, false);
+ const IconCheckCircleOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2718,15 +2244,9 @@ const IconCheckCircleOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	})]
+ });
+ /** Regular one-pixel IconCheckCircleOutline artwork. */
+-const IconCheckCircleOutlineRegular = (props) => jsx(IconCheckCircleOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconCheckCircleOutlineRegular = (props) => hqIcon(CircleCheck, props, false);
+ /** Medium IconCheckCircleOutline artwork with a 1.3px stroke. */
+-const IconCheckCircleOutlineMedium = (props) => jsx(IconCheckCircleOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconCheckCircleOutlineMedium = (props) => hqIcon(CircleCheck, props, false);
+ const IconUnarchiveOutlineArtwork = ({ size = 20, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2749,15 +2269,9 @@ const IconUnarchiveOutlineArtwork = ({ size = 20, className, strokeWidth }) => j
+ 	})]
+ });
+ /** Regular one-pixel IconUnarchiveOutline artwork. */
+-const IconUnarchiveOutlineRegular = (props) => jsx(IconUnarchiveOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconUnarchiveOutlineRegular = (props) => hqIcon(ArchiveRestore, props, false);
+ /** Medium IconUnarchiveOutline artwork with a 1.3px stroke. */
+-const IconUnarchiveOutlineMedium = (props) => jsx(IconUnarchiveOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconUnarchiveOutlineMedium = (props) => hqIcon(ArchiveRestore, props, false);
+ const IconPinOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2777,15 +2291,9 @@ const IconPinOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("s
+ 	})]
+ });
+ /** Regular one-pixel IconPinOutline artwork. */
+-const IconPinOutlineRegular = (props) => jsx(IconPinOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPinOutlineRegular = (props) => hqIcon(Pin, props, false);
+ /** Medium IconPinOutline artwork with a 1.3px stroke. */
+-const IconPinOutlineMedium = (props) => jsx(IconPinOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPinOutlineMedium = (props) => hqIcon(Pin, props, false);
+ const IconPinFillArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2806,15 +2314,9 @@ const IconPinFillArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg"
+ 	})]
+ });
+ /** Regular one-pixel IconPinFill artwork. */
+-const IconPinFillRegular = (props) => jsx(IconPinFillArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconPinFillRegular = (props) => hqIcon(Pin, props, true);
+ /** Medium IconPinFill artwork with a 1.3px stroke. */
+-const IconPinFillMedium = (props) => jsx(IconPinFillArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconPinFillMedium = (props) => hqIcon(Pin, props, true);
+ const IconFlatListOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2828,15 +2330,9 @@ const IconFlatListOutlineArtwork = ({ size = 16, className, strokeWidth }) => js
+ 	children: [jsx("path", { d: "M6 3.5h7.5M6 8h7.5M6 12.5h7.5" }), jsx("path", { d: "M2.6 3.5h.01M2.6 8h.01M2.6 12.5h.01" })]
+ });
+ /** Regular one-pixel IconFlatListOutline artwork. */
+-const IconFlatListOutlineRegular = (props) => jsx(IconFlatListOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconFlatListOutlineRegular = (props) => hqIcon(List, props, false);
+ /** Medium IconFlatListOutline artwork with a 1.3px stroke. */
+-const IconFlatListOutlineMedium = (props) => jsx(IconFlatListOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconFlatListOutlineMedium = (props) => hqIcon(List, props, false);
+ const IconWorkspaceTreeOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2851,15 +2347,9 @@ const IconWorkspaceTreeOutlineArtwork = ({ size = 16, className, strokeWidth })
+ 	children: [jsx("path", { d: "M14 12.05c0 .8-.65 1.45-1.46 1.45H3.46C2.65 13.5 2 12.85 2 12.05v-8.1c0-.8.65-1.45 1.46-1.45h2.4c.49 0 .94.24 1.21.65l.5.73c.27.4.73.65 1.21.65h3.76c.8 0 1.46.65 1.46 1.45v6.02Z" }), jsx("path", { d: "M8.7 8.1v3M11.2 8.1v3" })]
+ });
+ /** Regular one-pixel IconWorkspaceTreeOutline artwork. */
+-const IconWorkspaceTreeOutlineRegular = (props) => jsx(IconWorkspaceTreeOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconWorkspaceTreeOutlineRegular = (props) => hqIcon(FolderTree, props, false);
+ /** Medium IconWorkspaceTreeOutline artwork with a 1.3px stroke. */
+-const IconWorkspaceTreeOutlineMedium = (props) => jsx(IconWorkspaceTreeOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconWorkspaceTreeOutlineMedium = (props) => hqIcon(FolderTree, props, false);
+ const IconChevronsUpDownOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2874,15 +2364,9 @@ const IconChevronsUpDownOutlineArtwork = ({ size = 16, className, strokeWidth })
+ 	children: [jsx("path", { d: "m5.1 6 2.9-2.9L10.9 6" }), jsx("path", { d: "m5.1 10 2.9 2.9 2.9-2.9" })]
+ });
+ /** Regular one-pixel IconChevronsUpDownOutline artwork. */
+-const IconChevronsUpDownOutlineRegular = (props) => jsx(IconChevronsUpDownOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconChevronsUpDownOutlineRegular = (props) => hqIcon(ChevronsUpDown, props, false);
+ /** Medium IconChevronsUpDownOutline artwork with a 1.3px stroke. */
+-const IconChevronsUpDownOutlineMedium = (props) => jsx(IconChevronsUpDownOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconChevronsUpDownOutlineMedium = (props) => hqIcon(ChevronsUpDown, props, false);
+ const IconArchiveOffOutlineArtwork = ({ size = 16, className, strokeWidth }) => {
+ 	const maskId = `dsh-archive-off-${useId().replaceAll(":", "")}`;
+ 	return jsxs("svg", {
+@@ -2932,15 +2416,9 @@ const IconArchiveOffOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	});
+ };
+ /** Regular one-pixel IconArchiveOffOutline artwork. */
+-const IconArchiveOffOutlineRegular = (props) => jsx(IconArchiveOffOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconArchiveOffOutlineRegular = (props) => hqIcon(ArchiveX, props, false);
+ /** Medium IconArchiveOffOutline artwork with a 1.3px stroke. */
+-const IconArchiveOffOutlineMedium = (props) => jsx(IconArchiveOffOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconArchiveOffOutlineMedium = (props) => hqIcon(ArchiveX, props, false);
+ const IconArchiveCheckOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -2965,15 +2443,9 @@ const IconArchiveCheckOutlineArtwork = ({ size = 16, className, strokeWidth }) =
+ 	]
+ });
+ /** Regular one-pixel IconArchiveCheckOutline artwork. */
+-const IconArchiveCheckOutlineRegular = (props) => jsx(IconArchiveCheckOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconArchiveCheckOutlineRegular = (props) => hqIcon(PackageCheck, props, false);
+ /** Medium IconArchiveCheckOutline artwork with a 1.3px stroke. */
+-const IconArchiveCheckOutlineMedium = (props) => jsx(IconArchiveCheckOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconArchiveCheckOutlineMedium = (props) => hqIcon(PackageCheck, props, false);
+ const IconSlidersTwoOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -3000,15 +2472,9 @@ const IconSlidersTwoOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	]
+ });
+ /** Regular one-pixel IconSlidersTwoOutline artwork. */
+-const IconSlidersTwoOutlineRegular = (props) => jsx(IconSlidersTwoOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconSlidersTwoOutlineRegular = (props) => hqIcon(SlidersHorizontal, props, false);
+ /** Medium IconSlidersTwoOutline artwork with a 1.3px stroke. */
+-const IconSlidersTwoOutlineMedium = (props) => jsx(IconSlidersTwoOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconSlidersTwoOutlineMedium = (props) => hqIcon(SlidersHorizontal, props, false);
+ const IconMicrophoneOutlineArtwork = ({ size = 16, className, strokeWidth }) => jsxs("svg", {
+ 	width: size,
+ 	height: size,
+@@ -3027,15 +2493,9 @@ const IconMicrophoneOutlineArtwork = ({ size = 16, className, strokeWidth }) =>
+ 	}), jsx("path", { d: "M2.35 8.675C3.075 11.3 5.2 13.125 8 13.125C10.8 13.125 12.925 11.3 13.65 8.675M8 13.125V15" })]
+ });
+ /** Microphone with uniform one-pixel strokes. */
+-const IconMicrophoneOutlineRegular = (props) => jsx(IconMicrophoneOutlineArtwork, {
+-	...props,
+-	strokeWidth: 1
+-});
++const IconMicrophoneOutlineRegular = (props) => hqIcon(Mic, props, false);
+ /** Microphone with uniform 1.3px strokes. */
+-const IconMicrophoneOutlineMedium = (props) => jsx(IconMicrophoneOutlineArtwork, {
+-	...props,
+-	strokeWidth: ICON_MEDIUM_STROKE
+-});
++const IconMicrophoneOutlineMedium = (props) => hqIcon(Mic, props, false);
+ //#endregion
+ //#region lib/types/StateDot.js
+ /**
+@@ -5630,10 +5090,7 @@ function FullAccessArtwork({ size = 16, className, strokeWidth }) {
+ * @returns The regular decorative permission glyph.
+ */
+ function PermissionIconReadOnlyRegular(props) {
+-	return jsx(ReadOnlyArtwork, {
+-		...props,
+-		strokeWidth: 1
+-	});
++	return hqIcon(Eye, props);
+ }
+ /**
+ * Render the read-only permission icon with a 1.3px stroke.
+@@ -5641,10 +5098,7 @@ function PermissionIconReadOnlyRegular(props) {
+ * @returns The medium decorative permission glyph.
+ */
+ function PermissionIconReadOnlyMedium(props) {
+-	return jsx(ReadOnlyArtwork, {
+-		...props,
+-		strokeWidth: ICON_MEDIUM_STROKE
+-	});
++	return hqIcon(Eye, props);
+ }
+ /**
+ * Render the workspace-write permission icon with a one-pixel stroke.
+@@ -5652,10 +5106,7 @@ function PermissionIconReadOnlyMedium(props) {
+ * @returns The regular decorative permission glyph.
+ */
+ function PermissionIconWorkspaceWriteRegular(props) {
+-	return jsx(WorkspaceWriteArtwork, {
+-		...props,
+-		strokeWidth: 1
+-	});
++	return hqIcon(FolderPen, props);
+ }
+ /**
+ * Render the workspace-write permission icon with a 1.3px stroke.
+@@ -5663,10 +5114,7 @@ function PermissionIconWorkspaceWriteRegular(props) {
+ * @returns The medium decorative permission glyph.
+ */
+ function PermissionIconWorkspaceWriteMedium(props) {
+-	return jsx(WorkspaceWriteArtwork, {
+-		...props,
+-		strokeWidth: ICON_MEDIUM_STROKE
+-	});
++	return hqIcon(FolderPen, props);
+ }
+ /**
+ * Render the full-access permission icon with a one-pixel stroke.
+@@ -5674,10 +5122,7 @@ function PermissionIconWorkspaceWriteMedium(props) {
+ * @returns The regular decorative permission glyph.
+ */
+ function PermissionIconFullAccessRegular(props) {
+-	return jsx(FullAccessArtwork, {
+-		...props,
+-		strokeWidth: 1
+-	});
++	return hqIcon(ShieldAlert, props);
+ }
+ /**
+ * Render the full-access permission icon with a 1.3px stroke.
+@@ -5685,10 +5130,7 @@ function PermissionIconFullAccessRegular(props) {
+ * @returns The medium decorative permission glyph.
+ */
+ function PermissionIconFullAccessMedium(props) {
+-	return jsx(FullAccessArtwork, {
+-		...props,
+-		strokeWidth: ICON_MEDIUM_STROKE
+-	});
++	return hqIcon(ShieldAlert, props);
+ }
+ //#endregion
+ //#region lib/types/ReferenceIcon.js
+@@ -11323,7 +10765,7 @@ function renderNode(node, key, context) {
  				"aria-label": mention.label,
  				onClick: mention.open,
  				children: [jsx(LinkIconMedium, {
@@ -11,6 +1951,35 @@ index 2d94c1a..633f98f 100644
  					className: markdownCss.linkIcon
  				}), value]
  			}) }, key);
+@@ -12378,6 +11820,17 @@ function GuideArtworkFiles({ size = 36, className }) {
+ 	});
+ }
+ //#endregion
+-export { BrandWordmark, Button, CODE_HIGHLIGHT_EXTENSIONS, Checkbox, CodeBlock, ConnectionIndicator, DEFAULT_DIFF_MAX_LINES, DEFAULT_READ_MAX_LINES, DEFAULT_SEARCH_MAX_LINES, DEFAULT_TERMINAL_MAX_LINES, DiffBlock, DisclosureRow, FISH_LOGO_PATH, FISH_LOGO_VIEWBOX, FileTypeIcon, FishLogo, GuideArtworkBrowser, GuideArtworkFiles, HoverCard, ICON_MEDIUM_STROKE, ICON_REGULAR_STROKE, IconAgentPresetOutlineMedium, IconAgentPresetOutlineRegular, IconAlarmClockOutlineMedium, IconAlarmClockOutlineRegular, IconApiOutlineMedium, IconApiOutlineRegular, IconArchiveCheckOutlineMedium, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineMedium, IconArchiveOffOutlineRegular, IconArchiveOutlineMedium, IconArchiveOutlineRegular, IconBranchOutlineMedium, IconBranchOutlineRegular, IconBrowseOutlineMedium, IconBrowseOutlineRegular, IconCheckCircleFillMedium, IconCheckCircleFillRegular, IconCheckCircleOutlineMedium, IconCheckCircleOutlineRegular, IconCheckOutlineMedium, IconCheckOutlineRegular, IconChecklistOutlineMedium, IconChecklistOutlineRegular, IconChevronDownOutlineMedium, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium, IconChevronLeftOutlineRegular, IconChevronRightOutlineMedium, IconChevronRightOutlineRegular, IconChevronUpOutlineMedium, IconChevronUpOutlineRegular, IconChevronsUpDownOutlineMedium, IconChevronsUpDownOutlineRegular, IconClockOutlineMedium, IconClockOutlineRegular, IconCloseCircleFillMedium, IconCloseCircleFillRegular, IconCloseFillMedium, IconCloseFillRegular, IconCloseOutlineMedium, IconCloseOutlineRegular, IconCodeOutlineMedium, IconCodeOutlineRegular, IconCompactOutlineMedium, IconCompactOutlineRegular, IconCompareSplitOutlineMedium, IconCompareSplitOutlineRegular, IconContextInjectionOutlineMedium, IconContextInjectionOutlineRegular, IconCopyOutlineMedium, IconCopyOutlineRegular, IconCordisPluginOutlineMedium, IconCordisPluginOutlineRegular, IconDarkOutlineMedium, IconDarkOutlineRegular, IconDataOutlineMedium, IconDataOutlineRegular, IconDatabaseOutlineMedium, IconDatabaseOutlineRegular, IconDeliverDocMedium, IconDeliverDocRegular, IconDislikeFillMedium, IconDislikeFillRegular, IconDislikeOutlineMedium, IconDislikeOutlineRegular, IconDownloadOutlineMedium, IconDownloadOutlineRegular, IconEditOutlineMedium, IconEditOutlineRegular, IconEllipsisOutlineMedium, IconEllipsisOutlineRegular, IconEnhanceOutlineMedium, IconEnhanceOutlineRegular, IconFlatListOutlineMedium, IconFlatListOutlineRegular, IconFolderCloseMedium, IconFolderCloseRegular, IconFolderOpenMedium, IconFolderOpenOutlineMedium, IconFolderOpenOutlineRegular, IconFolderOpenRegular, IconFollowsystemOutlineMedium, IconFollowsystemOutlineRegular, IconFullscreenOutlineMedium, IconFullscreenOutlineRegular, IconGaugeOutlineMedium, IconGaugeOutlineRegular, IconGlobeOutlineMedium, IconGlobeOutlineRegular, IconGoalOutlineMedium, IconGoalOutlineRegular, IconInfoOutlineMedium, IconInfoOutlineRegular, IconInspectOutlineMedium, IconInspectOutlineRegular, IconLightOutlineMedium, IconLightOutlineRegular, IconLikeFillMedium, IconLikeFillRegular, IconLikeOutlineMedium, IconLikeOutlineRegular, IconLinkOutlineMedium, IconLinkOutlineRegular, IconListPenOutlineMedium, IconListPenOutlineRegular, IconLoadingOutlineMedium, IconLoadingOutlineRegular, IconMicrophoneOutlineMedium, IconMicrophoneOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconNowrapFillMedium, IconNowrapFillRegular, IconPanelLeftOutlineMedium, IconPanelLeftOutlineRegular, IconPaperPlaneOutlineMedium, IconPaperPlaneOutlineRegular, IconPaperclipOutlineMedium, IconPaperclipOutlineRegular, IconPauseOutlineMedium, IconPauseOutlineRegular, IconPersonalizationOutlineMedium, IconPersonalizationOutlineRegular, IconPinFillMedium, IconPinFillRegular, IconPinOutlineMedium, IconPinOutlineRegular, IconPlanOutlineMedium, IconPlanOutlineRegular, IconPlayOutlineMedium, IconPlayOutlineRegular, IconPluginPinwheelOutlineMedium, IconPluginPinwheelOutlineRegular, IconPlusOutlineMedium, IconPlusOutlineRegular, IconProjectAddOutlineMedium, IconProjectAddOutlineRegular, IconQuestionOutlineMedium, IconQuestionOutlineRegular, IconQueueOutlineMedium, IconQueueOutlineRegular, IconRefreshOutlineMedium, IconRefreshOutlineRegular, IconRightUpOutlineMedium, IconRightUpOutlineRegular, IconSearchOutlineMedium, IconSearchOutlineRegular, IconSendOutlineMedium, IconSendOutlineRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular, IconShareOutlineMedium, IconShareOutlineRegular, IconShieldOutlineMedium, IconShieldOutlineRegular, IconSkillOutlineMedium, IconSkillOutlineRegular, IconSlidersTwoOutlineMedium, IconSlidersTwoOutlineRegular, IconSparkleMedium, IconSparkleRegular, IconStopFillMedium, IconStopFillRegular, IconThinkOutlineMedium, IconThinkOutlineRegular, IconTrashOutlineMedium, IconTrashOutlineRegular, IconTreeCornerMedium, IconTreeCornerRegular, IconTriangleRightFillMedium, IconTriangleRightFillRegular, IconUnarchiveOutlineMedium, IconUnarchiveOutlineRegular, IconUserOutlineMedium, IconUserOutlineRegular, IconUsersOutlineMedium, IconUsersOutlineRegular, IconWarningOutlineMedium, IconWarningOutlineRegular, IconWarningTriangleOutlineMedium, IconWarningTriangleOutlineRegular, IconWorkspaceTreeOutlineMedium, IconWorkspaceTreeOutlineRegular, IconWrapFillMedium, IconWrapFillRegular, IconWrapLinesOutlineMedium, IconWrapLinesOutlineRegular, ImageLightbox, Input, JsonBlock, JsonTree, LinkIconMedium, LinkIconRegular, MarkdownDelegateProvider, MarkdownText, Menu, MenuGroup, MenuItemButton, MenuSurface, Modal, PathLabel, PermissionIconFullAccessMedium, PermissionIconFullAccessRegular, PermissionIconReadOnlyMedium, PermissionIconReadOnlyRegular, PermissionIconWorkspaceWriteMedium, PermissionIconWorkspaceWriteRegular, Pill, PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal, ReadBlock, ReferenceIconMedium, ReferenceIconRegular, RiskConfirmation, SHIELD_OUTLINE_PATH, SearchBlock, SegmentedControl, SegmentedTabs, SettingsForm, SettingsFormModel, SettingsSecretField, SettingsValueField, ShortcutKeys, StateDot, Switch, Tag, TerminalBlock, TextShimmer, Toast, Tooltip, WebBlock, classifyFileType, classifyLinkPath, closeTopModal, diffTotals, extractMarkdownPlainText, fileExtension, fileSizeText, focusWithoutRing, isBehindModal, isDarwinDesktop, languageForPath, modalSelector, observeComposition, observeStickyMenuGroups, pointerModality, projectUserText, rankByName, relativeTime, settingsNumberField, settingsTextField, useAnchoredMaxHeight, useAnchoredPosition, useCodeHighlighter, useDismissOnOutsidePointer, useModalLayer, writeClipboard };
++const IconBookmarkOutlineMedium = Bookmark;
++const IconStarOutlineMedium = Star;
++const IconZoomInOutlineMedium = ZoomIn;
++const IconLayoutGridOutlineMedium = LayoutGrid;
++const IconHouseOutlineMedium = House;
++const IconFileCheckOutlineMedium = FileCheck;
++const IconPanelsTopLeftOutlineMedium = PanelsTopLeft;
++const IconMapPinOutlineMedium = MapPin;
++const IconFlowerOutlineMedium = Flower2;
++const IconArrowLeftRightOutlineMedium = ArrowLeftRight;
++const IconGripVerticalOutlineMedium = GripVertical;
++export { IconBookmarkOutlineMedium, IconStarOutlineMedium, IconZoomInOutlineMedium, IconLayoutGridOutlineMedium, IconHouseOutlineMedium, IconFileCheckOutlineMedium, IconPanelsTopLeftOutlineMedium, IconMapPinOutlineMedium, IconFlowerOutlineMedium, IconArrowLeftRightOutlineMedium, IconGripVerticalOutlineMedium, BrandWordmark, Button, CODE_HIGHLIGHT_EXTENSIONS, Checkbox, CodeBlock, ConnectionIndicator, DEFAULT_DIFF_MAX_LINES, DEFAULT_READ_MAX_LINES, DEFAULT_SEARCH_MAX_LINES, DEFAULT_TERMINAL_MAX_LINES, DiffBlock, DisclosureRow, FISH_LOGO_PATH, FISH_LOGO_VIEWBOX, FileTypeIcon, FishLogo, GuideArtworkBrowser, GuideArtworkFiles, HoverCard, ICON_MEDIUM_STROKE, ICON_REGULAR_STROKE, IconAgentPresetOutlineMedium, IconAgentPresetOutlineRegular, IconAlarmClockOutlineMedium, IconAlarmClockOutlineRegular, IconApiOutlineMedium, IconApiOutlineRegular, IconArchiveCheckOutlineMedium, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineMedium, IconArchiveOffOutlineRegular, IconArchiveOutlineMedium, IconArchiveOutlineRegular, IconBranchOutlineMedium, IconBranchOutlineRegular, IconBrowseOutlineMedium, IconBrowseOutlineRegular, IconCheckCircleFillMedium, IconCheckCircleFillRegular, IconCheckCircleOutlineMedium, IconCheckCircleOutlineRegular, IconCheckOutlineMedium, IconCheckOutlineRegular, IconChecklistOutlineMedium, IconChecklistOutlineRegular, IconChevronDownOutlineMedium, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium, IconChevronLeftOutlineRegular, IconChevronRightOutlineMedium, IconChevronRightOutlineRegular, IconChevronUpOutlineMedium, IconChevronUpOutlineRegular, IconChevronsUpDownOutlineMedium, IconChevronsUpDownOutlineRegular, IconClockOutlineMedium, IconClockOutlineRegular, IconCloseCircleFillMedium, IconCloseCircleFillRegular, IconCloseFillMedium, IconCloseFillRegular, IconCloseOutlineMedium, IconCloseOutlineRegular, IconCodeOutlineMedium, IconCodeOutlineRegular, IconCompactOutlineMedium, IconCompactOutlineRegular, IconCompareSplitOutlineMedium, IconCompareSplitOutlineRegular, IconContextInjectionOutlineMedium, IconContextInjectionOutlineRegular, IconCopyOutlineMedium, IconCopyOutlineRegular, IconCordisPluginOutlineMedium, IconCordisPluginOutlineRegular, IconDarkOutlineMedium, IconDarkOutlineRegular, IconDataOutlineMedium, IconDataOutlineRegular, IconDatabaseOutlineMedium, IconDatabaseOutlineRegular, IconDeliverDocMedium, IconDeliverDocRegular, IconDislikeFillMedium, IconDislikeFillRegular, IconDislikeOutlineMedium, IconDislikeOutlineRegular, IconDownloadOutlineMedium, IconDownloadOutlineRegular, IconEditOutlineMedium, IconEditOutlineRegular, IconEllipsisOutlineMedium, IconEllipsisOutlineRegular, IconEnhanceOutlineMedium, IconEnhanceOutlineRegular, IconFlatListOutlineMedium, IconFlatListOutlineRegular, IconFolderCloseMedium, IconFolderCloseRegular, IconFolderOpenMedium, IconFolderOpenOutlineMedium, IconFolderOpenOutlineRegular, IconFolderOpenRegular, IconFollowsystemOutlineMedium, IconFollowsystemOutlineRegular, IconFullscreenOutlineMedium, IconFullscreenOutlineRegular, IconGaugeOutlineMedium, IconGaugeOutlineRegular, IconGlobeOutlineMedium, IconGlobeOutlineRegular, IconGoalOutlineMedium, IconGoalOutlineRegular, IconInfoOutlineMedium, IconInfoOutlineRegular, IconInspectOutlineMedium, IconInspectOutlineRegular, IconLightOutlineMedium, IconLightOutlineRegular, IconLikeFillMedium, IconLikeFillRegular, IconLikeOutlineMedium, IconLikeOutlineRegular, IconLinkOutlineMedium, IconLinkOutlineRegular, IconListPenOutlineMedium, IconListPenOutlineRegular, IconLoadingOutlineMedium, IconLoadingOutlineRegular, IconMicrophoneOutlineMedium, IconMicrophoneOutlineRegular, IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconNowrapFillMedium, IconNowrapFillRegular, IconPanelLeftOutlineMedium, IconPanelLeftOutlineRegular, IconPaperPlaneOutlineMedium, IconPaperPlaneOutlineRegular, IconPaperclipOutlineMedium, IconPaperclipOutlineRegular, IconPauseOutlineMedium, IconPauseOutlineRegular, IconPersonalizationOutlineMedium, IconPersonalizationOutlineRegular, IconPinFillMedium, IconPinFillRegular, IconPinOutlineMedium, IconPinOutlineRegular, IconPlanOutlineMedium, IconPlanOutlineRegular, IconPlayOutlineMedium, IconPlayOutlineRegular, IconPluginPinwheelOutlineMedium, IconPluginPinwheelOutlineRegular, IconPlusOutlineMedium, IconPlusOutlineRegular, IconProjectAddOutlineMedium, IconProjectAddOutlineRegular, IconQuestionOutlineMedium, IconQuestionOutlineRegular, IconQueueOutlineMedium, IconQueueOutlineRegular, IconRefreshOutlineMedium, IconRefreshOutlineRegular, IconRightUpOutlineMedium, IconRightUpOutlineRegular, IconSearchOutlineMedium, IconSearchOutlineRegular, IconSendOutlineMedium, IconSendOutlineRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular, IconShareOutlineMedium, IconShareOutlineRegular, IconShieldOutlineMedium, IconShieldOutlineRegular, IconSkillOutlineMedium, IconSkillOutlineRegular, IconSlidersTwoOutlineMedium, IconSlidersTwoOutlineRegular, IconSparkleMedium, IconSparkleRegular, IconStopFillMedium, IconStopFillRegular, IconThinkOutlineMedium, IconThinkOutlineRegular, IconTrashOutlineMedium, IconTrashOutlineRegular, IconTreeCornerMedium, IconTreeCornerRegular, IconTriangleRightFillMedium, IconTriangleRightFillRegular, IconUnarchiveOutlineMedium, IconUnarchiveOutlineRegular, IconUserOutlineMedium, IconUserOutlineRegular, IconUsersOutlineMedium, IconUsersOutlineRegular, IconWarningOutlineMedium, IconWarningOutlineRegular, IconWarningTriangleOutlineMedium, IconWarningTriangleOutlineRegular, IconWorkspaceTreeOutlineMedium, IconWorkspaceTreeOutlineRegular, IconWrapFillMedium, IconWrapFillRegular, IconWrapLinesOutlineMedium, IconWrapLinesOutlineRegular, ImageLightbox, Input, JsonBlock, JsonTree, LinkIconMedium, LinkIconRegular, MarkdownDelegateProvider, MarkdownText, Menu, MenuGroup, MenuItemButton, MenuSurface, Modal, PathLabel, PermissionIconFullAccessMedium, PermissionIconFullAccessRegular, PermissionIconReadOnlyMedium, PermissionIconReadOnlyRegular, PermissionIconWorkspaceWriteMedium, PermissionIconWorkspaceWriteRegular, Pill, PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal, ReadBlock, ReferenceIconMedium, ReferenceIconRegular, RiskConfirmation, SHIELD_OUTLINE_PATH, SearchBlock, SegmentedControl, SegmentedTabs, SettingsForm, SettingsFormModel, SettingsSecretField, SettingsValueField, ShortcutKeys, StateDot, Switch, Tag, TerminalBlock, TextShimmer, Toast, Tooltip, WebBlock, classifyFileType, classifyLinkPath, closeTopModal, diffTotals, extractMarkdownPlainText, fileExtension, fileSizeText, focusWithoutRing, isBehindModal, isDarwinDesktop, languageForPath, modalSelector, observeComposition, observeStickyMenuGroups, pointerModality, projectUserText, rankByName, relativeTime, settingsNumberField, settingsTextField, useAnchoredMaxHeight, useAnchoredPosition, useCodeHighlighter, useDismissOnOutsidePointer, useModalLayer, writeClipboard };
+
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/index.d.ts b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/index.d.ts
+index f2a93ed..c900251 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/index.d.ts
++++ b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/index.d.ts
+@@ -1,3 +1,4 @@
++export { Bookmark as IconBookmarkOutlineMedium, Star as IconStarOutlineMedium, ZoomIn as IconZoomInOutlineMedium, LayoutGrid as IconLayoutGridOutlineMedium, House as IconHouseOutlineMedium, FileCheck as IconFileCheckOutlineMedium, PanelsTopLeft as IconPanelsTopLeftOutlineMedium, MapPin as IconMapPinOutlineMedium, Flower2 as IconFlowerOutlineMedium, ArrowLeftRight as IconArrowLeftRightOutlineMedium, GripVertical as IconGripVerticalOutlineMedium } from "lucide-react";
+ /**
+  * Cordis-free React primitives styled only through `--dsw-*` tokens.
+  */
 diff --git a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/markdown/render.d.ts b/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/markdown/render.d.ts
 index 6e59173..8adcc72 100644
 --- a/node_modules/@deepseek-ai/dsh-client-ui-primitives/lib/types/markdown/render.d.ts
