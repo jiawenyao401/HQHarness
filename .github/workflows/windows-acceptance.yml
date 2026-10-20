@@ -44,6 +44,17 @@ jobs:
         run: node scripts/automation-native-package-smoke.mjs
       - name: Verify actual native authorization timeout and retry
         run: node scripts/automation-consent-smoke.mjs
+      - name: Verify structured browser plans in real Electron
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .build/automation-acceptance | Out-Null
+          node scripts/automation-performance-smoke.mjs 2>&1 | Tee-Object -FilePath .build/automation-acceptance/browser-local-execution.log
+          if ($LASTEXITCODE -ne 0) { throw 'Structured browser local-execution acceptance failed.' }
+      - name: Verify native Windows UIA plans against an owned WinForms application
+        shell: pwsh
+        run: |
+          node scripts/automation-window-smoke.mjs 2>&1 | Tee-Object -FilePath .build/automation-acceptance/windows-uia-local-execution.log
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows UIA local-execution acceptance failed.' }
       - name: Build unsigned acceptance installer on Windows
         shell: pwsh
         run: npm run package:win -- '--config.nsis.artifactName=hqharness-${version}-${os}-${arch}-acceptance.${ext}'
@@ -67,6 +78,10 @@ jobs:
             nativeSessionRecovery = 'passed (SDK lifecycle; installed UI pending)'
             nativeConsentTimeoutAndRetry = 'passed (actual Electron dialogs; installed UI pending)'
             losslessScreenshotOutput = 'passed'
+            structuredBrowserLocalExecution = 'passed (real Electron owned page; no model requests)'
+            nativeWindowsUiaLocalExecution = 'passed (owned WinForms application; real UIA text value and click handler verified; no model requests)'
+            localExecutionTimingEvidence = 'stage timings and image counts in the hqharness-windows-automation-acceptance-logs artifact'
+            endToEndModelSpeedup = 'not measured; local fixture timing is not model or classroom latency'
             file = $installer.Name
             sha256 = $hash.Hash.ToLowerInvariant()
             signed = $false
@@ -82,6 +97,14 @@ jobs:
           path: |
             dist/*-acceptance.exe
             dist/windows-acceptance.json
+      - name: Preserve native automation acceptance logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hqharness-windows-automation-acceptance-logs
+          retention-days: 14
+          if-no-files-found: warn
+          path: .build/automation-acceptance/*.log
       - name: Preserve installer diagnostics on a failed build
         if: failure()
         uses: actions/upload-artifact@v4

@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { dialog, globalShortcut, ipcMain, shell, systemPreferences, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
-import { AutomationError, validateAutomationRequest, type AutomationCapability, type AutomationStatus } from '../../shared/automation'
+import { AutomationError, MAX_AUTOMATION_REQUEST_BYTES, validateAutomationRequest, type AutomationCapability, type AutomationStatus } from '../../shared/automation'
 import { BrowserAutomation } from './browser'
 import { ComputerAutomation } from './computer'
 import { AutomationGate } from './gate'
@@ -94,6 +94,9 @@ export class DesktopAutomationService {
       }
       if (request.method !== 'POST' || request.url !== '/operation') { response.writeHead(404).end(); request.resume(); return }
       const controller = new AbortController()
+      const started = performance.now()
+      let admitted: number | undefined
+      let executed: number | undefined
       // A completed request must retain its response socket so approval timeout
       // can return its real reason instead of becoming a generic fetch failure.
       controller.signal.addEventListener('abort', () => { if (!request.complete) request.destroy() }, { once: true })
@@ -111,21 +114,31 @@ export class DesktopAutomationService {
         for await (const chunk of request) {
           const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
           size += buffer.length
-          if (size > 16_384) throw new AutomationError('INVALID_INPUT', 'Operation exceeds the input size limit')
+          if (size > MAX_AUTOMATION_REQUEST_BYTES) throw new AutomationError('INVALID_INPUT', 'Operation exceeds the 64 KiB UTF-8 input size limit')
           chunks.push(buffer)
         }
         const input = validateAutomationRequest(JSON.parse(Buffer.concat(chunks).toString('utf8')))
         const engine = input.capability === 'browser' ? this.browser : this.computer
-        const execute = () => {
+        const execute = async () => {
           controller.signal.throwIfAborted()
+          admitted = performance.now()
           deadline(this.timeouts.operationMs, new AutomationError('TIMEOUT', 'Automation operation timed out. Observe again before retrying input.'))
-          return engine.execute(input.owner, input.operation, controller.signal)
+          try { return await engine.execute(input.owner, input.operation, controller.signal) }
+          finally { executed = performance.now() }
         }
         deadline(this.timeouts.authorizationMs, new AutomationError('CONSENT_TIMEOUT', 'Automation authorization timed out while waiting for the HQHarness dialog or another operation. Bring HQHarness to the foreground and retry the tool to authorize; no action was performed.'))
         const result = input.operation.action === 'status' ? await execute()
           : await this.gate.run(input.capability, input.owner, controller.signal, () => this.consent(input.capability, controller.signal), execute)
         controller.signal.throwIfAborted()
-        response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(result))
+        const output = input.operation.action === 'status' ? result : {
+          ...result,
+          host_timing: {
+            queue_and_consent_ms: Math.round((admitted ?? started) - started),
+            execute_ms: Math.round((executed ?? performance.now()) - (admitted ?? started)),
+            total_ms: Math.round(performance.now() - started)
+          }
+        }
+        response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(output))
       } catch (error) {
         // Native/browser failures carry stage identity but never typed text, URL
         // credentials, cookies or the bridge bearer into diagnostic logs.

@@ -26,6 +26,30 @@
 
 桌面操作坐标来自最近截图，携带 display ID 和 snapshot ID；按实际缩略图尺寸映射回 Cua 原生截图像素，包含 Retina/Windows DPI，不能用 Electron DIP 代替。Cua 0.28 的可移植 desktop target 仅支持 `primary`：客户端、工具说明和错误返回均明确主显示器限制，其他显示器请求拒绝执行。拓扑变化、截图超过 90 秒或消费过的 snapshot 必须重新观察；捕获过程中拓扑变化也不能发布有效截图。每次输入后重新观察实际结果，驱动部分执行/疑似无效的返回不得报告成功。
 
+## 0.1.6 结构化观察与本地计划
+
+Browser Use 默认返回 Chromium accessibility 元素树，不调用截图；`screenshot: true` 才返回图片和对应的坐标尺寸。优先使用最近观察中的 `ref` 或精确 `target: { name, role? }`。多个元素同名且无法通过 role 唯一确定时返回 `AMBIGUOUS_TARGET`，不选择第一个匹配。无图片的 observation 不授予坐标输入能力，即使知道窗口尺寸也不能盲点坐标；必须重新请求带截图的观察。
+
+Computer Use 先用 `action: 'windows'` 发现应用窗口；可选 `pid` 仅过滤对应进程，列表返回真实 `pid` 与十进制字符串 `window`。后续 `observe` 显式提供这两个标识，不猜测前台应用，也不把原生 64 位窗口标识转成可能丢失精度的 JavaScript number。窗口观察默认不截图，返回有界 accessibility 元素、当前 snapshot、可用动作以及完整性/降级标记。窗口路径优先使用 `ref` 或精确 name/role 定位；语义输入是否可用取决于具体应用暴露的可访问性接口，不能假定所有 Windows 应用或自绘控件都支持后台操作。当前适配器使用 foreground delivery；发现窗口不等于已经验证其全部操作。
+
+显式 `pid/window` 的窗口观察与无 `pid/window` 的桌面观察是两个坐标空间。窗口的 `screenshot: true` 用于辨认内容，后续窗口输入仍使用元素引用或语义目标；需要坐标输入时先 `observe` 桌面并取得主显示器的 display/snapshot。桌面兼容路径仍返回主屏截图，未因默认结构化观察而变成无图路径。不可访问的控件、截断或降级的树应根据返回状态选择重新观察或视觉 fallback，不能把空树当作不存在控件。视觉 fallback 仍要求当前模型真正支持图片输入。
+
+两项工具增加 `action: 'run'`，复用现有 Harness 模型、会话及授权。模型给出短计划后，宿主在本地按顺序重取元素、精确匹配和执行，不在每步另建模型调用。计划必须携带当前有效 snapshot；Browser 同时使用对应 tab，Computer 使用对应 pid/window。每段 1–8 步，允许 `click`、`type`、`key`、`scroll`、`wait`，步骤共享 15 秒预算；排队/授权与显式请求的最终截图另计，仍受宿主单次操作 30 秒预算约束。`type`、`scroll`、`wait` 要求语义 target，Computer 的 `key` 也要求 target；Browser 的 `key` 可作用于当前受控 tab。步骤不接受 ref、坐标、脚本或任意命令。`type` 的 `replace: true` 替换已有文本；`wait.value` 省略表示等待目标存在，字符串表示等待精确值，空字符串只匹配真实空值。
+
+整个鉴权请求体按 UTF-8 编码限制为 64 KiB，包含 owner、operation、steps 与文本；字符数不等于字节数。插件在 fetch 前检查，宿主读取时再次检查，超限以 `INVALID_INPUT` 拒绝，须缩短文字或拆分计划。拆分后使用新观察确认当前状态，不能假设上一段全部完成。
+
+每次输入消耗旧 snapshot；成功动作尽量直接返回新 observation，下一步可使用其 snapshot，避免重复请求同一张截图。`run` 的 `sequence` 返回 `status`、`completed`、`total` 和 `elapsed_ms`，失败另有 `failed_step` 与错误 code/message，并返回 `observation_required: true`。失败步骤可能已经部分生效；不得自动重放失败输入或整段计划。先观察实际结果，再决定剩余步骤。显式停止/连接取消保留原始取消原因，不包装成计划完成；歧义、陈旧目标与权限拒绝同样停止后续步骤。截图、网页和应用文字仍属于不可信输入，计划执行不绕过危险提交确认。
+
+宿主为成功的非 status 请求附加 `host_timing`，单位为毫秒：
+
+| 字段 | 实际范围 |
+| --- | --- |
+| `queue_and_consent_ms` | 宿主开始处理至 engine 准入，包含请求读取/校验、排队及必要的用户授权 |
+| `execute_ms` | engine 执行，包含本地查找/等待、原生输入、截图与结果观察 |
+| `total_ms` | 宿主开始处理至准备响应；不是客户端完整等待时间 |
+
+这些字段不包含 Harness 中的 attachment 入库/模型请求图片处理、模型推理、云端往返或响应后的 UI 展示，也不把 native 输入、截图和模型等待自动细分。工具调用数不等于模型请求数。排查“每次点击前思考或等截图很久”时，需将这些宿主时间与真实模型请求时间、图片数量/字节及最终任务成功率一并记录；本地 fixture 的耗时不能证明课堂场景或模型端到端提速。
+
 ## 验收
 
 源码行为回归覆盖输入校验、认证/Origin 拒绝、会话隔离、串行队列、撤权/取消、元素陈旧、缩放和错误返回。真实 Electron 验收使用本任务窗口与临时 Profile，检查 Browser Use 的观察/截图/点击/输入/导航，检查 Computer Use 的权限及原生输入闭环。安装包资源和真实 Harness 后端、客户端发现/引导/UI 挂载分别验证。
@@ -34,11 +58,18 @@
 
 macOS 本机验收不能替代 Windows 原生验收；正式 Windows 分发必须在 Windows runner 通过相同真实浏览器/输入 smoke，再分发。用户明确要求先提供安装包自行验收时，可使用 windows-acceptance workflow：保留原生目标、完整回归、打包与原生模块门禁，安装后 GUI/input 验收标记为 pending，禁止创建正式 Release。macOS 未授权时必须展示权限引导，不把权限缺失包装成成功。
 
+0.1.6 的 [Windows 验收 workflow](../.github/workflows/windows-acceptance.yml) 在打包前增加两个必过门禁，任一个失败都阻止生成验收安装包：
+
+- `node scripts/automation-performance-smoke.mjs`：真实 Electron 与任务自有网页，验证默认无图、中文替换、三步本地计划、显式图片/坐标、歧义停止、15 秒步骤超时和取消后不执行后续步骤；以独立 DOM/事件状态核对结果。
+- `node scripts/automation-window-smoke.mjs`：仅 Windows，启动任务自有 WinForms 窗口，用真实 UIA 发现/观察、中文替换、点击与等待，读取独立结果文件核对 TextBox 值及实际 click handler 恰好执行一次，另验显式窗口图片和旧 snapshot 拒绝。需要可交互 Windows 桌面，环境不满足时失败，不跳过验收。
+
+两脚本输出各阶段时间、操作数及图片数，日志作为 `hqharness-windows-automation-acceptance-logs` artifact 保存。`windows-acceptance.json` 仅在前序门禁成功后记录对应 fixture 验收通过，并明确 `endToEndModelSpeedup` 尚未测量；它们没有调用云模型，也不替代最终安装版本的实际应用、课堂操作、模型能力及性能对照验收。配置了 workflow 不表示当前提交已通过 Windows 运行；以该提交的成功 run、日志、安装包 SHA256 与 manifest 为证据。
+
 ## 底层接口依据
 
 浏览器使用 [Electron webContents debugger](https://www.electronjs.org/docs/latest/api/debugger) 与 [Chromium Input](https://chromedevtools.github.io/devtools-protocol/tot/Input/)；桌面采用 [Cua Driver application SDK](https://github.com/trycua/cua/tree/main/libs/cua-driver/typescript) 的固定工具适配，保持其原生许可/拒绝与 `AbortSignal`。macOS 权限按 [Electron systemPreferences](https://www.electronjs.org/docs/latest/api/system-preferences) 检查，显示器拓扑由 [Electron screen](https://www.electronjs.org/docs/latest/api/screen) 提供。停止先取消所有已准入动作，再 shutdown/destroy SDK session；重开等待旧驱动清理完成，应用退出等待原生清理。
 
-`browser_use` 可设置 `screenshot=false` 使用元素树和引用，在不支持图片的模型下完成普通网页操作。`computer_use` 依赖视觉观察，需选择支持图片输入的模型。图片入库规范化后，由插件记录本次截图的尺寸映射；映射缺失、旧 snapshot、显示器拓扑变化或截图超过 90 秒时拒绝输入并要求重新观察。
+`browser_use` 默认 `screenshot=false`，可用元素树和引用完成普通网页操作。`computer_use` 的窗口路径优先使用可访问性数据；图片理解仅在请求截图并走视觉判断时需要，模型显示名不证明该部署具备图片输入能力。图片入库规范化后，由插件记录本次截图的尺寸映射；无图片的结果只记录 snapshot。映射缺失、旧 snapshot、显示器拓扑变化或截图超过 90 秒时拒绝坐标输入并要求重新观察。
 
 新增的 `@deepseek-ai/dsh@0.2.0-rc.2` dependency patch 仅把内置包加入安装包/普通 Profile 的宿主闭包；它不改变 loader 或 Safe Mode 的解析规则。当上游提供等价的正式宿主依赖扩展契约并覆盖 Profile/client 发现时可移除此补丁。干净 npm ci 重放与实际 Harness 启动都作为验收项。
 
