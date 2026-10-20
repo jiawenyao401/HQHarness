@@ -12,7 +12,13 @@
 
 第一次执行需要会话范围的原生授权；授权不跨应用重启，停止入口和紧急快捷键立即撤销全部授权并关闭受控浏览器。队列串行化本机输入，取消与撤权在副作用前再次检查。截图和页面内容属于不可信数据；工具提示要求危险提交遵循用户确认，不提供绕过系统权限或 UAC 的能力。
 
-工具执行以真实 Agent 的 `session.header.id` 作为授权、浏览器和截图映射的共同 owner；Agent 没有 `sessionId` 字段。缺少有效 Session 时拒绝执行，不用任意 agent ID 或全局共享 key 代替。截图结果必须遵守 ToolRuntime 的无损 JSON 契约：删去源坐标字段，而非返回 `coordinates: undefined`。0.1.3 修复这两处实际执行阻塞，内置插件版本为 0.1.1。
+工具执行以真实 Agent 的 `session.header.id` 作为授权、浏览器和截图映射的共同 owner；Agent 没有 `sessionId` 字段。缺少有效 Session 时拒绝执行，不用任意 agent ID 或全局共享 key 代替。截图结果必须遵守 ToolRuntime 的无损 JSON 契约：删去源坐标字段，而非返回 `coordinates: undefined`。0.1.3 修复这两处实际执行阻塞。
+
+内置插件 0.1.2 修复内部原生会话结束后持续失败的问题。Cua 0.28 的隐式会话结束后不会由普通工具调用自动恢复；复用同一个 driver 会持续返回 `session_ended`。宿主在每次原生调用前使用 SDK 的 `startSession({})` 附着/恢复内部会话，仍受宿主当前会话授权和取消控制，不扩大权限或延长宿主的 30 分钟授权。恢复后仅观察可以直接继续，输入必须重新观察取得新 snapshot，不自动重放点击、键盘或文字。工具说明同时明确没有需要用户重开的 GUI 会话开关。OS 权限、UAC、安全桌面和显式停止仍按原边界拒绝操作。
+
+0.1.5 修复授权超时误报为用户拒绝：Electron 的 `AbortSignal` 关闭弹窗时也返回 Cancel，旧代码先解释 Cancel，掩盖了 30 秒的计时器超时。现在先保留取消原因，只有实际选择取消才返回 `DENIED`。授权前恢复/显示宿主窗口并请求焦点；窗口不可用返回 `CONSENT_UNAVAILABLE`。排队/授权最多等待 120 秒，成功授权后独立执行 30 秒操作预算；超时返回 `CONSENT_TIMEOUT`，不授予权限且不执行操作，可直接重试触发新弹窗。输入读取上限 15 秒，插件传输/工具预算分别 175/180 秒，覆盖完整阶段。已有授权仍严格限制在当前会话的 30 分钟内，显式停止和拒绝不被自动绕过。
+
+`node scripts/automation-consent-smoke.mjs` 在隔离 Profile 中使用真实 Electron 授权弹窗，分别验证 Browser/Computer 超时返回正确原因、隐藏父窗口恢复显示、无授权及同一服务继续请求。回归测试补充允许、主动取消、停止和重试路径。该流程不操作用户桌面、不自动点击允许；Windows 任务执行此原生弹窗验收，但正式安装后的焦点及真实允许/桌面输入仍须单独验收。
 
 `HQHARNESS_AUTOMATION_TOKEN` 仅注入 Harness 进程，工具直接在该进程内访问桌面桥。上游 subprocess 的 `KEY|PASSWORD|SECRET|TOKEN` 环境过滤会使普通 shell 读不到它，这是预期的凭据隔离，不能因此放宽鉴权或向 shell 转发 token。Windows PowerShell 的受限启动故障属于 subprocess/sandbox 链路；两个内置自动化工具不依赖 PowerShell。
 
@@ -41,3 +47,5 @@ macOS 本机验收不能替代 Windows 原生验收；正式 Windows 分发必�
 用户提供的 setup ZIP 作为选型证据只读检查，不执行其中的脚本、不复制 Windows node_modules。其浏览器 provider 使用 Chrome DevTools MCP attach 模式，需要外部调试端口；内置 Chromium 消除这项安装步骤。其桌面说明记录了 Windows SDK 的 catalog/权限/尺寸只读探测，不能代替本版本安装后的实际点击与输入验收。
 
 完整应用 QA 使用 Electron 的 `--user-data-dir=<绝对路径>` 开关；客户端显式保留该开关，默认生产/开发目录不变。诊断目录创建于任务临时目录中，不复制 node_modules、构建目录或真实用户 Profile。
+
+会话恢复的原生 package smoke 从开发依赖及实际 ASAR 分别创建真实 SDK driver，读取尺寸、结束本测试的内部会话、确认 `session_ended`、显式重开并再次读取尺寸。Windows runner 执行同样流程；这是原生生命周期验证，不能替代安装后等待空闲、锁屏/远程桌面恢复及真实截图/输入验收。

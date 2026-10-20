@@ -31,6 +31,29 @@ describe('automation input boundary', () => {
   })
 })
 describe('automation grants and queue', () => {
+  it('does not misreport an aborted consent dialog as an explicit user denial', async () => {
+    const gate = new AutomationGate()
+    const controller = new AbortController()
+    const reason = new Error('authorization timed out')
+    const work = vi.fn(async () => 'must not run')
+    await expect(gate.run('computer', 'a', controller.signal, async () => {
+      controller.abort(reason)
+      return false
+    }, work)).rejects.toBe(reason)
+    expect(work).not.toHaveBeenCalled()
+    expect(gate.activeSessions).toBe(0)
+  })
+  it('keeps later operations runnable after a native session error and reauthorizes after stop', async () => {
+    const gate = new AutomationGate()
+    const signal = new AbortController().signal
+    const consent = vi.fn(async () => true)
+    await expect(gate.run('computer', 'a', signal, consent, async () => { throw new Error('session_ended') })).rejects.toThrow('session_ended')
+    await expect(gate.run('computer', 'a', signal, consent, async () => 'observed')).resolves.toBe('observed')
+    expect(consent).toHaveBeenCalledTimes(1)
+    gate.stop()
+    await expect(gate.run('computer', 'a', signal, consent, async () => 'observed after consent')).resolves.toBe('observed after consent')
+    expect(consent).toHaveBeenCalledTimes(2)
+  })
   it('serializes mutations, keeps consent session/capability scoped and expires it', async () => {
     let now = 0
     const gate = new AutomationGate(() => now)

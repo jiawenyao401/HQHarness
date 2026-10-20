@@ -7,6 +7,8 @@ import { ComputerAutomation } from './computer'
 import { AutomationGate } from './gate'
 
 const SHORTCUT = 'CommandOrControl+Shift+F12'
+const INPUT_TIMEOUT_MS = 15_000
+interface AutomationTimeouts { authorizationMs: number; operationMs: number }
 export class DesktopAutomationService {
   private server?: Server
   private port = 0
@@ -16,7 +18,11 @@ export class DesktopAutomationService {
   private computer = new ComputerAutomation()
   private active = new Set<AbortController>()
   private shortcut = false
-  constructor(private readonly window: () => BrowserWindow | undefined, private readonly locale: () => 'zh' | 'en') {}
+  constructor(
+    private readonly window: () => BrowserWindow | undefined,
+    private readonly locale: () => 'zh' | 'en',
+    private readonly timeouts: AutomationTimeouts = { authorizationMs: 120_000, operationMs: 30_000 }
+  ) {}
   registerIpc(assertTrusted: (event: IpcMainInvokeEvent) => void): void {
     for (const action of ['status', 'permissions', 'stop'] as const) {
       const channel = `hq:automation:${action}`
@@ -63,9 +69,20 @@ export class DesktopAutomationService {
     }
     const parent = this.window()
     // Unparented macOS dialogs cannot be aborted and would block stop/timeout.
-    if (!parent || parent.isDestroyed()) return false
-    const result = await dialog.showMessageBox(parent, options)
-    return result.response === 1
+    if (!parent || parent.isDestroyed()) throw new AutomationError('CONSENT_UNAVAILABLE', 'The HQHarness window is unavailable for authorization. Open HQHarness and retry the tool.')
+    signal.throwIfAborted()
+    if (parent.isMinimized()) parent.restore()
+    if (!parent.isVisible()) parent.show()
+    parent.focus()
+    parent.flashFrame(true)
+    try {
+      const result = await dialog.showMessageBox(parent, options)
+      signal.throwIfAborted()
+      if (parent.isDestroyed()) throw new AutomationError('CONSENT_UNAVAILABLE', 'The authorization window closed. Open HQHarness and retry the tool.')
+      return result.response === 1
+    } finally {
+      if (!parent.isDestroyed()) parent.flashFrame(false)
+    }
   }
   async start(): Promise<void> {
     if (this.server) return
@@ -77,8 +94,14 @@ export class DesktopAutomationService {
       }
       if (request.method !== 'POST' || request.url !== '/operation') { response.writeHead(404).end(); request.resume(); return }
       const controller = new AbortController()
-      controller.signal.addEventListener('abort', () => request.destroy(), { once: true })
-      const timer = setTimeout(() => controller.abort(new AutomationError('TIMEOUT', 'Automation operation timed out')), 30_000)
+      // A completed request must retain its response socket so approval timeout
+      // can return its real reason instead of becoming a generic fetch failure.
+      controller.signal.addEventListener('abort', () => { if (!request.complete) request.destroy() }, { once: true })
+      let timer = setTimeout(() => controller.abort(new AutomationError('TIMEOUT', 'Automation input timed out')), INPUT_TIMEOUT_MS)
+      const deadline = (ms: number, error: AutomationError): void => {
+        clearTimeout(timer)
+        timer = setTimeout(() => controller.abort(error), ms)
+      }
       this.active.add(controller)
       request.on('aborted', () => controller.abort(new AutomationError('CANCELLED', 'The tool call was cancelled')))
       response.on('close', () => { if (!response.writableEnded) controller.abort(new AutomationError('CANCELLED', 'The client disconnected')) })
@@ -93,19 +116,26 @@ export class DesktopAutomationService {
         }
         const input = validateAutomationRequest(JSON.parse(Buffer.concat(chunks).toString('utf8')))
         const engine = input.capability === 'browser' ? this.browser : this.computer
-        const result = input.operation.action === 'status' ? await engine.execute(input.owner, input.operation, controller.signal)
-          : await this.gate.run(input.capability, input.owner, controller.signal, () => this.consent(input.capability, controller.signal), () => engine.execute(input.owner, input.operation, controller.signal))
+        const execute = () => {
+          controller.signal.throwIfAborted()
+          deadline(this.timeouts.operationMs, new AutomationError('TIMEOUT', 'Automation operation timed out. Observe again before retrying input.'))
+          return engine.execute(input.owner, input.operation, controller.signal)
+        }
+        deadline(this.timeouts.authorizationMs, new AutomationError('CONSENT_TIMEOUT', 'Automation authorization timed out while waiting for the HQHarness dialog or another operation. Bring HQHarness to the foreground and retry the tool to authorize; no action was performed.'))
+        const result = input.operation.action === 'status' ? await execute()
+          : await this.gate.run(input.capability, input.owner, controller.signal, () => this.consent(input.capability, controller.signal), execute)
         controller.signal.throwIfAborted()
         response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(result))
       } catch (error) {
         // Native/browser failures carry stage identity but never typed text, URL
         // credentials, cookies or the bridge bearer into diagnostic logs.
-        const code = error instanceof AutomationError ? error.code : controller.signal.aborted ? 'CANCELLED' : 'AUTOMATION_FAILED'
-        const message = error instanceof AutomationError ? error.message : 'The automation operation failed. Observe again or reopen the target and retry.'
+        const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
+        const code = cause instanceof AutomationError ? cause.code : controller.signal.aborted ? 'CANCELLED' : 'AUTOMATION_FAILED'
+        const message = cause instanceof AutomationError ? cause.message : 'The automation operation failed. Observe again or reopen the target and retry.'
         if (!response.destroyed) response.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ code, error: message }))
       } finally { clearTimeout(timer); this.active.delete(controller) }
     })
-    server.requestTimeout = 35_000
+    server.requestTimeout = INPUT_TIMEOUT_MS
     server.headersTimeout = 5_000
     server.maxConnections = 16
     await new Promise<void>((resolve, reject) => {

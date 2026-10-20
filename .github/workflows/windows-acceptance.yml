@@ -42,6 +42,8 @@ jobs:
         run: npm test -- --maxWorkers=4
       - name: Qualify Windows native binaries and real Agent tool execution
         run: node scripts/automation-native-package-smoke.mjs
+      - name: Verify actual native authorization timeout and retry
+        run: node scripts/automation-consent-smoke.mjs
       - name: Build unsigned acceptance installer on Windows
         shell: pwsh
         run: npm run package:win -- '--config.nsis.artifactName=hqharness-${version}-${os}-${arch}-acceptance.${ext}'
@@ -62,6 +64,8 @@ jobs:
             source = '${{ github.sha }}'
             automationVersion = $automation.version
             actualAgentToolExecution = 'passed'
+            nativeSessionRecovery = 'passed (SDK lifecycle; installed UI pending)'
+            nativeConsentTimeoutAndRetry = 'passed (actual Electron dialogs; installed UI pending)'
             losslessScreenshotOutput = 'passed'
             file = $installer.Name
             sha256 = $hash.Hash.ToLowerInvariant()

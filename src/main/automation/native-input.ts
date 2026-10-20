@@ -63,9 +63,21 @@ export class NativeInput {
     const driver = await this.runtime(signal)
     signal.throwIfAborted()
     let result: ToolResult
-    try { result = await driver.callTool(name, JSON.stringify(args), { signal }) }
+    try {
+      const { StartSessionInput } = await loadSdk()
+      // Cua reuses an implicit transport session, but does not revive it after
+      // five idle minutes. The host's session-scoped consent remains the gate;
+      // explicitly attach/revive before each call instead of caching an ended
+      // session until the entire application is restarted.
+      const session = await driver.startSession(StartSessionInput.new({}), { signal })
+      signal.throwIfAborted()
+      if (!session.active) throw new AutomationError('NATIVE_SESSION_UNAVAILABLE', 'The native desktop session could not start. Observe again to retry.')
+      if (session.revived && name !== 'get_desktop_state' && name !== 'get_screen_size') throw new AutomationError('STALE_SNAPSHOT', 'The native desktop session was reopened. Observe again before sending input; the previous action was not replayed.')
+      result = await driver.callTool(name, JSON.stringify(args), { signal })
+    }
     catch (error) {
       signal.throwIfAborted()
+      if (error instanceof AutomationError) throw error
       throw new AutomationError('NATIVE_OPERATION_FAILED', `Cua Driver ${name} failed. Verify system permissions and observe again before retrying.`, { cause: error })
     }
     signal.throwIfAborted()

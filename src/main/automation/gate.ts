@@ -25,8 +25,11 @@ export class AutomationGate {
       const key = `${capability}:${owner}`
       if ((this.grants.get(key) ?? 0) <= this.now()) {
         if (this.activeSessions >= 128) throw new AutomationError('BUSY', 'Too many active automation sessions; stop automation before granting another')
-        if (!await consent()) throw new AutomationError('DENIED', 'The user declined automation access')
+        const approved = await consent()
+        // Electron resolves an aborted dialog with its Cancel response too.
+        // Preserve timeout/stop before interpreting an actual user choice.
         check()
+        if (!approved) throw new AutomationError('DENIED', 'The user declined automation access')
         this.grants.set(key, this.now() + 30 * 60_000)
       }
       check()
