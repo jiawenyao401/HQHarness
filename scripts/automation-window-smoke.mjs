@@ -59,7 +59,10 @@ const script = path.join(directory, 'fixture.ps1')
 await writeFile(script, powershell, 'utf8')
 const env = { ...process.env, HQ_WINDOW_FIXTURE_DIRECTORY: directory, HQ_WINDOW_FIXTURE_TITLE: title }
 delete env.ELECTRON_RUN_AS_NODE
-const fixture = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Sta', '-File', script], { env, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true })
+// windowsHide also sets STARTUPINFO's SW_HIDE for the first GUI window. The
+// WinForms fixture must be visible to native discovery, not only .NET's Shown
+// event; hiding this child produces a ready HWND that Cua correctly filters out.
+const fixture = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Sta', '-File', script], { env, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: false })
 let fixtureError
 let fixtureExited = false
 let fixtureDiagnostics = ''

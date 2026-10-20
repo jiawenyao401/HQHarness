@@ -38,12 +38,6 @@ jobs:
       - run: npm run typecheck
       - name: Check Git Bash signing fixture path compatibility
         run: npx --no-install vitest run test/signed-test-build.test.ts
-      - name: Run all regression tests
-        run: npm test -- --maxWorkers=4
-      - name: Qualify Windows native binaries and real Agent tool execution
-        run: node scripts/automation-native-package-smoke.mjs
-      - name: Verify actual native authorization timeout and retry
-        run: node scripts/automation-consent-smoke.mjs
       - name: Verify structured browser plans in real Electron
         shell: pwsh
         run: |
@@ -55,6 +49,12 @@ jobs:
         run: |
           node scripts/automation-window-smoke.mjs 2>&1 | Tee-Object -FilePath .build/automation-acceptance/windows-uia-local-execution.log
           if ($LASTEXITCODE -ne 0) { throw 'Native Windows UIA local-execution acceptance failed.' }
+      - name: Run all regression tests
+        run: npm test -- --maxWorkers=4
+      - name: Qualify Windows native binaries and real Agent tool execution
+        run: node scripts/automation-native-package-smoke.mjs
+      - name: Verify actual native authorization timeout and retry
+        run: node scripts/automation-consent-smoke.mjs
       - name: Build unsigned acceptance installer on Windows
         shell: pwsh
         run: npm run package:win -- '--config.nsis.artifactName=hqharness-${version}-${os}-${arch}-acceptance.${ext}'

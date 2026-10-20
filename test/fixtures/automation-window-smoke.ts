@@ -61,6 +61,16 @@ async function main(): Promise<void> {
   try {
     const found = await measured('discover-owned-native-window', () => execute({ action: 'windows', pid }))
     assert(Array.isArray(found.windows))
+    // Log only our fixture's identity and equality checks, never another app's
+    // title/content. Shown/ready and native window discovery are distinct stages.
+    console.log('WINDOW_DISCOVERY_DIAGNOSTIC ' + JSON.stringify({
+      fixture_pid: pid, ready_window: ready.window, returned_count: found.windows.length,
+      foreign_pid_count: found.windows.filter(value => record(value).pid !== pid).length,
+      owned_windows: found.windows.filter(value => record(value).pid === pid).map(value => {
+        const window = record(value)
+        return { pid: window.pid, window: window.window, handle_match: window.window === ready.window, title_match: window.title === title, on_screen: window.on_screen, minimized: window.minimized }
+      })
+    }))
     assert(found.windows.some(value => {
       const window = record(value)
       return window.pid === pid && window.window === ready.window && window.title === title
