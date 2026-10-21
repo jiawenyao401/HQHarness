@@ -93,6 +93,17 @@ async function main(): Promise<void> {
       { action: 'click', target: { name: 'Search', role: 'Button' } },
       { action: 'wait', target: { name: 'Done', role: 'Button' } }
     ] }))
+    if (record(result.sequence).status !== 'completed') {
+      // Capture only this fixture's known textbox after a failed plan. This is
+      // read-only evidence; it never retries input or relaxes the assertions.
+      try {
+        const after = await execute({ action: 'observe', pid, window: ready.window })
+        const controls = Array.isArray(after.elements) ? after.elements.map(record).filter(element => element.name === 'Query').map(element => ({ role: element.role, value: element.value, enabled: element.enabled, actions: element.actions })) : []
+        console.log('WINDOW_APPEND_FAILURE_DIAGNOSTIC ' + JSON.stringify({ expected: query, controls, complete: after.complete, truncated: after.truncated, degraded: after.degraded }))
+      } catch (error) {
+        console.log('WINDOW_APPEND_FAILURE_DIAGNOSTIC ' + JSON.stringify({ expected: query, observation_error: error instanceof Error ? error.message : String(error) }))
+      }
+    }
     assert.deepEqual(record(result.sequence).status, 'completed', JSON.stringify(result.sequence))
     assert.equal(record(result.sequence).completed, 4)
     assert.equal(record(result.sequence).total, 4)

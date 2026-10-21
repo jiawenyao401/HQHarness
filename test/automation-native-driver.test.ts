@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ToolResult } from '@trycua/cua-driver'
 const native = vi.hoisted(() => ({ call: vi.fn(), start: vi.fn(), windows: vi.fn(), observeWindow: vi.fn(), shutdown: vi.fn(), destroy: vi.fn() }))
 vi.mock('@trycua/cua-driver', () => ({
@@ -11,6 +11,8 @@ vi.mock('@trycua/cua-driver', () => ({
 }))
 import { NativeInput } from '../src/main/automation/native-input'
 const result = (extras: Partial<ToolResult> = {}): ToolResult => ({ text: 'sent', images: [], isError: false, degraded: false, rawJson: '{}', ...extras })
+const hostPlatform = process.platform
+afterEach(() => { Object.defineProperty(process, 'platform', { value: hostPlatform }) })
 beforeEach(() => { native.call.mockReset().mockResolvedValue(result()); native.start.mockReset().mockResolvedValue({ active: true, revived: false }); native.windows.mockReset().mockResolvedValue({ windows: [] }); native.observeWindow.mockReset().mockResolvedValue({ pid: 9, windowId: 10n, snapshotId: 'sdk-snapshot', elements: [], images: [] }); native.shutdown.mockReset().mockResolvedValue(undefined); native.destroy.mockReset() })
 describe('native desktop adapter lifecycle and refusal', () => {
   it('uses typed discovery and bounded tree-only observation without losing the native window identifier', async () => {
@@ -42,11 +44,51 @@ describe('native desktop adapter lifecycle and refusal', () => {
   it('leaves unverified element text for the host readback without replaying it on another route', async () => {
     const driver = new NativeInput()
     const signal = new AbortController().signal
-    native.call.mockResolvedValueOnce(result({ action: { effect: 2, route: 0 } }))
+    native.call.mockResolvedValue(result({ action: { effect: 2, route: 0 } }))
     await expect(driver.elementText({ pid: 9, window: '10', token: 'sdk:1' }, 'once only', false, signal)).resolves.toBeUndefined()
-    expect(native.call).toHaveBeenCalledOnce()
+    expect(native.call.mock.calls.map(([name]) => name)).toEqual(process.platform === 'win32' ? ['hotkey', 'type_text'] : ['type_text'])
     expect(native.shutdown).not.toHaveBeenCalled()
     await driver.close()
+  })
+  it('positions the Windows document caret on the exact element before delivering append text once', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    const target = { pid: 9, window: '10', token: 'sdk:1' }
+    try {
+      await driver.elementText(target, '中文', false, new AbortController().signal)
+      expect(native.call.mock.calls.map(([name]) => name)).toEqual(['hotkey', 'type_text'])
+      expect(JSON.parse(String(native.call.mock.calls[0]?.[1]))).toEqual({ pid: 9, element_token: 'sdk:1', delivery_mode: 'foreground', keys: ['CTRL', 'END'] })
+      expect(JSON.parse(String(native.call.mock.calls[1]?.[1]))).toEqual({ pid: 9, element_token: 'sdk:1', delivery_mode: 'foreground', text: '中文' })
+    } finally { await driver.close() }
+  })
+  it.each([
+    [result({ action: { effect: 1, route: 2 } }), 'INPUT_UNCONFIRMED'],
+    [result({ action: { effect: 4, route: 2 } }), 'INPUT_REFUSED'],
+    [result({ isError: true, errorCode: 'foreground_unavailable' }), 'foreground_unavailable'],
+    [result({ action: { effect: 2, route: 2, escalation: { target: 0, reason: 2 } } }), 'INPUT_UNCONFIRMED']
+  ] as const)('does not send append text after caret positioning is refused or uncertain (%j)', async (outcome, code) => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    native.call.mockResolvedValueOnce(outcome)
+    try {
+      await expect(driver.elementText({ pid: 9, window: '10', token: 'sdk:1' }, 'must not be sent', false, new AbortController().signal)).rejects.toMatchObject({ code })
+      expect(native.call.mock.calls.map(([name]) => name)).toEqual(['hotkey'])
+    } finally { await driver.close() }
+  })
+  it('does not send append text if cancellation or session revival occurs after positioning the caret', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    const controller = new AbortController()
+    const reason = new Error('stop after caret positioning')
+    native.call.mockImplementationOnce(async () => { controller.abort(reason); return result() })
+    try {
+      await expect(driver.elementText({ pid: 9, window: '10', token: 'sdk:1' }, 'cancelled', false, controller.signal)).rejects.toBe(reason)
+      expect(native.call.mock.calls.map(([name]) => name)).toEqual(['hotkey'])
+      native.call.mockClear().mockResolvedValue(result())
+      native.start.mockResolvedValueOnce({ active: true, revived: false }).mockResolvedValueOnce({ active: true, revived: true })
+      await expect(driver.elementText({ pid: 9, window: '10', token: 'sdk:1' }, 'not replayed', false, new AbortController().signal)).rejects.toMatchObject({ code: 'STALE_SNAPSHOT' })
+      expect(native.call.mock.calls.map(([name]) => name)).toEqual(['hotkey'])
+    } finally { await driver.close() }
   })
   it('reopens an ended implicit session before observing again without restarting the adapter', async () => {
     const driver = new NativeInput()

@@ -124,6 +124,13 @@ export class NativeInput {
     await this.call('click', { ...this.element(target), button, count }, signal)
   }
   async elementText(target: NativeElementTarget, text: string, replace: boolean, signal: AbortSignal): Promise<void> {
+    if (!replace && process.platform === 'win32') {
+      // 0.28's Windows foreground type_text inserts at the current selection.
+      // Establish append semantics without rewriting the observed baseline;
+      // both calls retain the exact token and native foreground checks.
+      const positioned = await this.call('hotkey', { ...this.element(target), keys: ['CTRL', 'END'] }, signal)
+      if (positioned.action?.escalation) throw new AutomationError('INPUT_UNCONFIRMED', 'The native provider could not position the append caret. No text was sent. Observe the window and verify it before retrying.')
+    }
     // set_value is a separate 0.28 tool whose schema has no delivery_mode.
     const result = replace
       ? await this.call('set_value', { pid: target.pid, element_token: target.token, value: text }, signal)
