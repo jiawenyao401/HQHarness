@@ -29,7 +29,10 @@ it('executes both built-in tools with real Agents through the actual Harness loa
         const input = JSON.parse(body)
         calls.push(input)
         res.setHeader('content-type', 'application/json')
-        if (input.operation.action === 'observe' && input.owner === 'session-another-owner') {
+        if (input.operation.action === 'windows') {
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'Exact target was not foreground', code: 'foreground_unavailable' }))
+        } else if (input.operation.action === 'observe' && input.owner === 'session-another-owner') {
           res.writeHead(400)
           res.end(JSON.stringify({ error: 'The user declined automation access', code: 'DENIED', host_timing: { queue_and_consent_ms: 30, execute_ms: 0, total_ms: 30 } }))
         } else if (input.operation.action === 'observe') {
@@ -77,7 +80,11 @@ it('executes both built-in tools with real Agents through the actual Harness loa
           assert.equal(stale.isError, true)
           assert.deepEqual(stale.error?.info, { name: 'HarnessError', code: 'STALE_SNAPSHOT' })
         }
-        assert.deepEqual(calls.map(call => call.owner), ['session-native-owner', 'session-native-owner', 'session-another-owner', 'session-native-owner', 'session-native-owner', 'session-another-owner'])
+        const nativeFailure = await ctx.tools.execute({ callId: 'native-lowercase-code', name: 'computer_use', arguments: { action: 'windows' }, agent, signal: new AbortController().signal })
+        assert.equal(nativeFailure.isError, true)
+        assert.deepEqual(nativeFailure.error?.info, { name: 'HarnessError', code: 'foreground_unavailable' })
+        assert.equal(Object.hasOwn(nativeFailure, 'value'), false)
+        assert.deepEqual(calls.map(call => call.owner), ['session-native-owner', 'session-native-owner', 'session-another-owner', 'session-native-owner', 'session-native-owner', 'session-another-owner', 'session-native-owner'])
         console.log('AUTOMATION_HARNESS_PASS ' + JSON.stringify(schemas.map(schema => schema.name)))
       } finally { await ctx.fiber.dispose(); await new Promise(resolve => bridge.close(resolve)) }
     `)

@@ -17,6 +17,11 @@ function bridgeFixture() {
   return fetch
 }
 describe('automation bridge request budget', () => {
+  it.each(['foreground_unavailable', 'session_ended'])('preserves the native SDK failure identity %s', async code => {
+    const fetch = bridgeFixture()
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ code, error: 'Native operation failed' }) })
+    await expect(callDesktop('computer', 'owner', { action: 'observe' })).rejects.toMatchObject({ code, message: 'Native operation failed' })
+  })
   it('keeps failure codes and only bounded numeric phase timings from the bridge', async () => {
     const fetch = bridgeFixture()
     fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ code: 'NATIVE_INPUT_REFUSED', error: 'Native input was refused', host_timing: { queue_and_consent_ms: 0, execute_ms: 50, total_ms: 50, token: 'private-bridge-data' }, token: 'private-bridge-data' }) })

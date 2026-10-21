@@ -43,7 +43,7 @@ export async function callDesktop(capability, owner, operation, signal) {
     body, signal: AbortSignal.any([signal ?? new AbortController().signal, AbortSignal.timeout(175_000)]) })
   const result = await response.json()
   if (!response.ok) {
-    const code = typeof result.code === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/u.test(result.code) ? result.code : 'AUTOMATION_FAILED'
+    const code = typeof result.code === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,79}$/u.test(result.code) ? result.code : 'AUTOMATION_FAILED'
     const message = typeof result.error === 'string' ? result.error : 'Desktop automation failed'
     // ToolRuntime persists structured error identity only for HarnessError.
     // Its public failure contract carries text but no metadata projector.
