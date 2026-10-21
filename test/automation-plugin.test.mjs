@@ -69,7 +69,7 @@ describe('built-in automation tool composition', () => {
     expect(request).toHaveBeenCalledWith(capability, 'session-runtime', { action: 'status' }, undefined)
   })
   it('composes two actual Cordis plugins and two distinct tools', () => {
-    const plugins = []; apply({ plugin: value => plugins.push(value) })
+    const plugins = []; apply({ plugin: value => plugins.push(value), inject() {} })
     expect(plugins.map(value => value.name)).toEqual(['browser-use', 'computer-use'])
     const { ctx, tools } = context()
     for (const plugin of plugins) plugin.apply(ctx)

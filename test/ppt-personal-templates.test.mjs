@@ -123,6 +123,7 @@ describe('personal PPT templates in the shipped runtime', () => {
   }, 30_000);
 
   it('imports and reuses a PPTX above 16 MB with its real image assets intact', async () => {
+    const started = performance.now();
     const f = await fixture();
     const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_WIDE';
     const slide = pptx.addSlide();
@@ -148,7 +149,10 @@ describe('personal PPT templates in the shipped runtime', () => {
     const mediaHashes = Object.entries(exported).filter(([name]) => name.startsWith('ppt/media/')).map(([, data]) => createHash('sha256').update(data).digest('hex'));
     for (const image of images) expect(mediaHashes).toContain(createHash('sha256').update(image).digest('hex'));
     expect((await readFile(path.join(f.storage, 'personal-templates/saved', template.id, 'source.pptx'))).equals(bytes)).toBe(true);
-  }, 30000);
+    process.stdout.write(`PPT_LARGE_TEMPLATE_PASS ${JSON.stringify({ bytes: bytes.length, images: images.length, elapsed_ms: Math.round(performance.now() - started) })}\n`);
+    // This covers generation, import/preview, restart, export and byte integrity.
+    // Use the project's integration deadline, not a separate 30 s latency SLO.
+  });
 
   it('imports mixed-size title and body text without inflating all text to the largest run', async () => {
     const f = await fixture();

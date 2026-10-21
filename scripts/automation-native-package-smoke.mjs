@@ -32,7 +32,8 @@ async function qualifyOwnedTools(appRoot) {
     process.env.DSH_HOME = home
     const config = join(home, 'cordis.yml')
     await writeFile(config, JSON.stringify([
-      ...['dsh-system-prompt', 'dsh-tools', 'dsh-session-projection', 'dsh-session', 'dsh-agent', 'dsh-llm', 'dsh-agent-loop'].map(name => ({ id: name, name: moduleUrl('@deepseek-ai/' + name) })),
+      ...['dsh-system-prompt', 'dsh-tools', 'dsh-session-projection', 'dsh-session', 'dsh-agent', 'dsh-llm', 'dsh-agent-loop', 'dsh-token-meter'].map(name => ({ id: name, name: moduleUrl('@deepseek-ai/' + name) })),
+      { id: 'history-query', name: moduleUrl('@deepseek-ai/dsh-session-query-sqlite'), config: { path: ':memory:', openAt: 'never' } },
       { id: 'automation', name: pathToFileURL(join(appRoot, 'node_modules/hqharness-automation/index.js')).href }
     ]))
     const { boot } = await import(moduleUrl('@deepseek-ai/dsh-app-boot'))
@@ -52,6 +53,42 @@ async function qualifyOwnedTools(appRoot) {
     }
     assert.deepEqual(calls.map(call => call.owner), Array(4).fill('session-packaged-automation'))
     console.log('PACKAGED_OWNED_TOOLS_PASS: actual packaged Agent, ToolRuntime, automation module, authenticated test bridge and lossless screenshot results')
+    // Qualify the optional history hook from this exact installed dependency
+    // closure too. Fixture events never dispatch browser/desktop input.
+    const { createUserMessage, createAssistantMessage, createToolResultMessage, ToolCallId } = await import(moduleUrl('@deepseek-ai/dsh-llm'))
+    const historyAgent = await ctx.agentLoop.create('session-packaged-history')
+    const session = historyAgent.session
+    session.append('turn/start', { turn: 1 })
+    session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'Keep all fixture rows.' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+    for (let step = 1; step <= 4; step++) {
+      const callId = ToolCallId('history-' + step)
+      const args = JSON.stringify({ action: 'observe' })
+      session.append('step/start', { turn: 1, step })
+      session.append('assistant/message', { turn: 1, step, stream: [], message: createAssistantMessage({ source: { provider: 'test', model: 'test' }, content: [{ type: 'tool-call', id: callId, name: 'computer_use', arguments: args }] }) }, { surfaceOp: 'append' })
+      session.append('tool/call', { turn: 1, step, callId, name: 'computer_use', arguments: args })
+      const observation = { snapshot: 'history-' + step, elements: Array.from({ length: 220 }, (_, index) => ({ ref: 'history-' + step + ':' + index, role: 'cell', name: 'Fixture ' + index, value: 'Value ' + index, bounds: { x: 100, y: index * 20, width: 800, height: 20 } })) }
+      session.append('tool/result', { turn: 1, step, message: createToolResultMessage({ callId, content: [{ type: 'text', text: JSON.stringify(observation) }], isError: false }) }, { surfaceOp: 'append' })
+      session.append('step/end', { turn: 1, step })
+    }
+    const decision = { kind: 'enter', messages: [] }
+    assert.equal(await ctx.waterfall('agent/pre-step', { agent: historyAgent, signal: new AbortController().signal }, () => Promise.resolve(decision)), decision)
+    const cut = await ctx.sessionQuery.observeSession(session.id, { projectionMode: 'none' })
+    try {
+      const surface = [...session.surface.nodes].map(seq => cut.events[seq])
+      const results = surface.filter(event => event.type === 'tool/result').map(event => JSON.parse(session.deriveEventMessage(event).content[0].text))
+      assert.equal(results.length, 4)
+      assert.equal(results.filter(result => result.archived_observation).length, 2)
+      assert.equal(results.filter(result => result.snapshot).length, 2)
+      assert.equal(results[0].elements.length, 220)
+      assert.equal(results[0].elements[219].value, 'Value 219')
+      assert.equal(Object.hasOwn(results[0].elements[0], 'ref'), false)
+      const original = cut.events.filter(event => event.type === 'tool/result' && event.surfaceOp === 'append')
+      assert.equal(original.length, 4)
+      assert.equal(JSON.parse(original[0].data.message.content[0].text).elements[0].ref, 'history-1:0')
+      assert.equal(cut.events.filter(event => event.type === 'compaction/prune').length, 2)
+      assert.equal(calls.length, 4, 'History maintenance must not dispatch native input')
+    } finally { cut[Symbol.dispose]() }
+    console.log('PACKAGED_CONTEXT_PRUNING_PASS: exact packaged helper, services, Agent pre-step, retained semantic rows, latest observations and durable original history')
   } finally {
     await ctx?.fiber.dispose()
     server.closeAllConnections()

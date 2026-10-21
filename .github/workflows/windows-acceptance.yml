@@ -78,6 +78,7 @@ jobs:
             nativeSessionRecovery = 'passed (SDK lifecycle; installed UI pending)'
             nativeConsentTimeoutAndRetry = 'passed (actual Electron dialogs; installed UI pending)'
             losslessScreenshotOutput = 'passed'
+            automationHistoryPruning = 'passed (actual ASAR helper, services and Agent pre-step; original history and semantic rows preserved)'
             structuredBrowserLocalExecution = 'passed (real Electron owned page; no model requests)'
             nativeWindowsUiaLocalExecution = 'passed (owned WinForms application; real UIA text value and click handler verified; no model requests)'
             localExecutionTimingEvidence = 'stage timings and image counts in the hqharness-windows-automation-acceptance-logs artifact'
