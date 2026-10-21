@@ -1,4 +1,5 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { HarnessError } from '@deepseek-ai/dsh-llm'
 
 export const name = 'desktop-automation'
 export const inject = ['tools', 'attachments', 'systemPrompt']
@@ -18,17 +19,35 @@ const stepSchema = {
   }
 }
 
+/** Keep only bounded phase durations, never arbitrary bridge response data. */
+function failureTiming(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const timing = {}
+  for (const key of ['queue_and_consent_ms', 'execute_ms', 'total_ms']) {
+    const duration = value[key]
+    if (!Number.isSafeInteger(duration) || duration < 0 || duration > 180_000) return ''
+    timing[key] = duration
+  }
+  return ` [host_timing=${JSON.stringify(timing)}]`
+}
+
 /** The endpoint is supplied only by Electron main to its Harness child. */
 export async function callDesktop(capability, owner, operation, signal) {
   const endpoint = process.env.HQHARNESS_AUTOMATION_URL
   const token = process.env.HQHARNESS_AUTOMATION_TOKEN
   if (!endpoint || !/^http:\/\/127\.0\.0\.1:\d+\/operation$/u.test(endpoint) || !/^[a-f0-9]{64}$/u.test(token ?? '')) throw new Error('Desktop automation is unavailable. Launch this session in HQHarness Desktop.')
   const body = JSON.stringify({ capability, owner, operation })
-  if (Buffer.byteLength(body, 'utf8') > 65_536) throw Object.assign(new Error('Automation request exceeds the 64 KiB UTF-8 limit. Shorten the text or split the plan, then observe before retrying.'), { code: 'INVALID_INPUT' })
+  if (Buffer.byteLength(body, 'utf8') > 65_536) throw new HarnessError('Automation request exceeds the 64 KiB UTF-8 limit. Shorten the text or split the plan, then observe before retrying.', 'INVALID_INPUT')
   const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body, signal: AbortSignal.any([signal ?? new AbortController().signal, AbortSignal.timeout(175_000)]) })
   const result = await response.json()
-  if (!response.ok) throw Object.assign(new Error(result.error ?? 'Desktop automation failed'), { code: result.code ?? 'AUTOMATION_FAILED' })
+  if (!response.ok) {
+    const code = typeof result.code === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/u.test(result.code) ? result.code : 'AUTOMATION_FAILED'
+    const message = typeof result.error === 'string' ? result.error : 'Desktop automation failed'
+    // ToolRuntime persists structured error identity only for HarnessError.
+    // Its public failure contract carries text but no metadata projector.
+    throw new HarnessError(message + failureTiming(result.host_timing), code)
+  }
   return result
 }
 export function createAutomationPlugin(capability, request = callDesktop) {
@@ -80,9 +99,9 @@ export function createAutomationPlugin(capability, request = callDesktop) {
         if (browser && !['status', 'tabs', 'close'].includes(operation.action) && operation.screenshot === undefined) operation.screenshot = false
         const prior = frames.get(owner)
         const input = ['click', 'type', 'key', 'scroll', 'drag', 'run'].includes(operation.action)
-        if (input && (!prior || prior.snapshot !== operation.snapshot)) throw Object.assign(new Error('Observe this target again before sending input; the observation or coordinate mapping is stale'), { code: 'STALE_SNAPSHOT' })
+        if (input && (!prior || prior.snapshot !== operation.snapshot)) throw new HarnessError('Observe this target again before sending input; the observation or coordinate mapping is stale', 'STALE_SNAPSHOT')
         const coordinates = ['x', 'y', 'toX', 'toY'].some(field => typeof operation[field] === 'number')
-        if (coordinates && (!prior?.width || !prior?.height || !prior?.sourceWidth || !prior?.sourceHeight)) throw Object.assign(new Error('Request a screenshot and observe this target again before using coordinates'), { code: 'STALE_SNAPSHOT' })
+        if (coordinates && (!prior?.width || !prior?.height || !prior?.sourceWidth || !prior?.sourceHeight)) throw new HarnessError('Request a screenshot and observe this target again before using coordinates', 'STALE_SNAPSHOT')
         if (coordinates && operation.snapshot && prior?.snapshot === operation.snapshot) {
           for (const field of ['x', 'toX']) if (typeof operation[field] === 'number') operation[field] *= prior.sourceWidth / prior.width
           for (const field of ['y', 'toY']) if (typeof operation[field] === 'number') operation[field] *= prior.sourceHeight / prior.height

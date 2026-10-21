@@ -112,8 +112,10 @@ export class ComputerAutomation {
     const element = this.resolve(frame, op)
     const target = { pid: frame.pid, window: frame.window, token: element.elementToken ?? '' }
     const actions = element.actions ?? []
+    const baseline = element.value
     if (op.action === 'click' && !actions.some(action => ['invoke', 'toggle', 'select', 'expand', 'press'].includes(action))) throw new AutomationError('UNSUPPORTED_CONTROL', 'This control exposes no semantic click action. Observe the desktop for coordinate input.')
     if (op.action === 'type' && (!actions.includes('set_value') || element.inWebContent)) throw new AutomationError('UNSUPPORTED_CONTROL', 'This control does not expose a trusted writable value. Observe the desktop and use foreground text input instead.')
+    if (op.action === 'type' && op.replace !== true && typeof baseline !== 'string') throw new AutomationError('INPUT_UNCONFIRMED', 'The observed control has no readable baseline value, so an append cannot be verified. No input was sent. Observe again or use replace with the complete intended value.')
     if (op.action === 'scroll' && !actions.includes('scroll')) throw new AutomationError('UNSUPPORTED_CONTROL', 'This control exposes no scroll action. Choose a scroll container or use desktop coordinates.')
     if (!['click', 'type', 'key', 'scroll'].includes(op.action)) throw new AutomationError('UNSUPPORTED_CONTROL', 'Use desktop observation for this input action')
     // Consume before dispatch. Even a failed/uncertain action cannot replay a
@@ -127,7 +129,7 @@ export class ComputerAutomation {
     else throw new AutomationError('INVALID_INPUT', 'Incomplete window operation')
     let observation = await this.observeWindow(owner, frame, op.screenshot === true, signal)
     if (op.action === 'type') {
-      const expected = op.replace ? op.text : `${element.value ?? ''}${op.text ?? ''}`
+      const expected = op.replace ? op.text : typeof baseline === 'string' && op.text !== undefined ? baseline + op.text : undefined
       const deadline = performance.now() + 1000
       for (;;) {
         const current = this.windowFrames.get(owner)

@@ -128,12 +128,11 @@ export class NativeInput {
     const result = replace
       ? await this.call('set_value', { pid: target.pid, element_token: target.token, value: text }, signal)
       : await this.call('type_text', { ...this.element(target), text }, signal)
-    const { ActionEffect } = await loadSdk()
-    // Cua 0.28's Windows set_value returns text-only success, which the core
-    // normalizes to Unverifiable. The host must still inspect the exact fresh
-    // control value before reporting replacement success. Append's uncertainty
-    // and any explicit escalation remain refusals; neither is replayed here.
-    if (result.action?.escalation || (!replace && result.action?.effect === ActionEffect.Unverifiable)) throw new AutomationError('INPUT_UNCONFIRMED', 'The native provider could not confirm the text write. Observe the window and verify it before retrying; input was not replayed.')
+    // Cua 0.28 can normalize text delivery to Unverifiable. The host verifies
+    // both replacement and append against a fresh unique control value before
+    // reporting success; append additionally requires its observed baseline.
+    // Explicit escalation remains authoritative, and no input is replayed here.
+    if (result.action?.escalation) throw new AutomationError('INPUT_UNCONFIRMED', 'The native provider could not confirm the text write. Observe the window and verify it before retrying; input was not replayed.')
   }
   async elementKey(target: NativeElementTarget, value: string, signal: AbortSignal): Promise<void> {
     const { key, modifiers } = parseAutomationKey(value)

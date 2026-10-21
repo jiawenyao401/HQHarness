@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 }))
 import { DesktopAutomationService } from '../src/main/automation/service'
 import { ComputerAutomation } from '../src/main/automation/computer'
+import { AutomationError } from '../src/shared/automation'
 
 const services: DesktopAutomationService[] = []
 afterEach(async () => { await Promise.all(services.splice(0).map(service => service.close())); vi.restoreAllMocks(); fakes.dialog.mockReset().mockResolvedValue({ response: 0 }) })
@@ -28,6 +29,39 @@ function hostWindow() {
 }
 const operationBody = (capability: 'browser' | 'computer') => JSON.stringify({ capability, owner: 's1', operation: { action: capability === 'browser' ? 'tabs' : 'observe' } })
 describe('native automation authenticated transport', () => {
+  it('reports authorization failure time without claiming any engine execution', async () => {
+    let now = 100
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    fakes.dialog.mockImplementationOnce(async () => { now = 130; return { response: 0 } })
+    const { url, authorization } = await endpoint(hostWindow())
+    const response = await fetch(url, { method: 'POST', headers: { authorization }, body: operationBody('computer') })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ code: 'DENIED', host_timing: { queue_and_consent_ms: 30, execute_ms: 0, total_ms: 30 } })
+  })
+  it.each([
+    { started: 0, admitted: 0, finished: 45, queue: 0 },
+    { started: 100, admitted: 130, finished: 175, queue: 30 }
+  ])('preserves execution failure stages including a zero admission timestamp: %j', async timing => {
+    let now = timing.started
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    fakes.dialog.mockImplementationOnce(async () => { now = timing.admitted; return { response: 1 } })
+    vi.spyOn(ComputerAutomation.prototype, 'execute').mockImplementationOnce(async () => {
+      now = timing.finished
+      throw new AutomationError('NATIVE_INPUT_REFUSED', 'Native input was refused')
+    })
+    const { url, authorization } = await endpoint(hostWindow())
+    const response = await fetch(url, { method: 'POST', headers: { authorization }, body: operationBody('computer') })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ code: 'NATIVE_INPUT_REFUSED', error: 'Native input was refused', host_timing: { queue_and_consent_ms: timing.queue, execute_ms: 45, total_ms: timing.queue + 45 } })
+  })
+  it('returns zero execution time when validation fails before engine admission', async () => {
+    vi.spyOn(performance, 'now').mockReturnValue(0)
+    const { url, authorization } = await endpoint()
+    const response = await fetch(url, { method: 'POST', headers: { authorization }, body: '{}' })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ code: 'INVALID_INPUT', host_timing: { queue_and_consent_ms: 0, execute_ms: 0, total_ms: 0 } })
+    expect(fakes.dialog).not.toHaveBeenCalled()
+  })
   it('restores and foregrounds a hidden/minimized host before requesting native consent', async () => {
     // Only the BrowserWindow methods used by consent are required by this
     // Electron boundary fixture; no real application window is manipulated.

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { callDesktop, createAutomationPlugin, apply } from '../packages/hqharness-automation/index.js'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
@@ -16,6 +17,23 @@ function bridgeFixture() {
   return fetch
 }
 describe('automation bridge request budget', () => {
+  it('keeps failure codes and only bounded numeric phase timings from the bridge', async () => {
+    const fetch = bridgeFixture()
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ code: 'NATIVE_INPUT_REFUSED', error: 'Native input was refused', host_timing: { queue_and_consent_ms: 0, execute_ms: 50, total_ms: 50, token: 'private-bridge-data' }, token: 'private-bridge-data' }) })
+    const result = callDesktop('computer', 'owner', { action: 'observe' })
+    await expect(result).rejects.toBeInstanceOf(HarnessError)
+    await expect(result).rejects.toMatchObject({ code: 'NATIVE_INPUT_REFUSED', message: 'Native input was refused [host_timing={"queue_and_consent_ms":0,"execute_ms":50,"total_ms":50}]' })
+  })
+  it.each([-1, 180_001, 0.5, '50'])('omits invalid failure timing instead of serializing untrusted response fields: %j', async executeMs => {
+    const fetch = bridgeFixture()
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ code: 'DENIED', error: 'Access was declined', host_timing: { queue_and_consent_ms: 0, execute_ms: executeMs, total_ms: 50, secret: 'private-bridge-data' } }) })
+    await expect(callDesktop('computer', 'owner', { action: 'observe' })).rejects.toMatchObject({ code: 'DENIED', message: 'Access was declined' })
+  })
+  it('uses a fixed failure identity when the bridge code or error message has an invalid shape', async () => {
+    const fetch = bridgeFixture()
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ code: 'invalid bridge data', error: { token: 'private-bridge-data' }, host_timing: [] }) })
+    await expect(callDesktop('computer', 'owner', { action: 'observe' })).rejects.toMatchObject({ code: 'AUTOMATION_FAILED', message: 'Desktop automation failed' })
+  })
   it('sends one serialized UTF-8 body for an eight-step Chinese text plan below 64 KiB', async () => {
     const fetch = bridgeFixture()
     const operation = { action: 'run', snapshot: 's1', tab: 't1', steps: Array.from({ length: 8 }, () => ({ action: 'type', target: { name: 'Editor' }, text: '中'.repeat(2000), replace: true })) }

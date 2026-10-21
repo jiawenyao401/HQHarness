@@ -136,14 +136,12 @@ describe('exact native window automation', () => {
     await expect(computer.execute('a', { action: 'type', snapshot: String(first.snapshot), target: { name: '搜索' }, text: 'test' }, signal())).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTROL' })
     expect(native.elementText).not.toHaveBeenCalled()
   })
-  it('verifies append into a provider that omits its initial empty value', async () => {
+  it('does not dispatch append when a provider omits the baseline value', async () => {
     const computer = new ComputerAutomation()
     native.observeWindow.mockResolvedValue(state([element('Query', { role: 'Edit', actions: ['set_value'] })]))
     const first = await computer.execute('a', { action: 'observe', pid: 9, window: '10' }, signal())
-    native.elementText.mockImplementationOnce(async () => { native.observeWindow.mockResolvedValue(state([element('Query', { role: 'Edit', actions: ['set_value'], value: '中文' })])) })
-    const result = await computer.execute('a', { action: 'type', snapshot: String(first.snapshot), target: { name: 'Query' }, text: '中文' }, signal())
-    expect(result.verified).toBe(true)
-    expect(native.elementText).toHaveBeenCalledWith({ pid: 9, window: '10', token: 'sdk:1' }, '中文', false, expect.any(AbortSignal))
+    await expect(computer.execute('a', { action: 'type', snapshot: String(first.snapshot), target: { name: 'Query' }, text: '中文' }, signal())).rejects.toMatchObject({ code: 'INPUT_UNCONFIRMED' })
+    expect(native.elementText).not.toHaveBeenCalled()
   })
   it('waits for an exact empty value instead of treating it as an existence-only predicate', async () => {
     const computer = new ComputerAutomation()

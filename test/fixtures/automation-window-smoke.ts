@@ -82,19 +82,25 @@ async function main(): Promise<void> {
     assert(Array.isArray(observation.elements))
     assert(observation.elements.some(value => record(value).name === 'Query'), 'The real UIA tree must expose the native textbox')
     assert(observation.elements.some(value => record(value).name === 'Search'), 'The real UIA tree must expose the native button')
-    const query = '中文课堂 HQHarness 原生验收'
-    const result = await measured('native-one-plan-three-local-steps', () => execute({ action: 'run', pid, window: ready.window, snapshot: String(observation.snapshot), steps: [
-      { action: 'type', target: { name: 'Query' }, text: query, replace: true },
+    const prefix = '已有内容-'
+    const suffix = '中文课堂 HQHarness 原生验收'
+    const query = prefix + suffix
+    // Establish a readable nonempty baseline, then exercise native append and host
+    // readback; replacement alone does not cover Unverifiable type_text results.
+    const result = await measured('native-one-plan-four-local-steps', () => execute({ action: 'run', pid, window: ready.window, snapshot: String(observation.snapshot), steps: [
+      { action: 'type', target: { name: 'Query' }, text: prefix, replace: true },
+      { action: 'type', target: { name: 'Query' }, text: suffix },
       { action: 'click', target: { name: 'Search', role: 'Button' } },
       { action: 'wait', target: { name: 'Done', role: 'Button' } }
     ] }))
     assert.deepEqual(record(result.sequence).status, 'completed', JSON.stringify(result.sequence))
-    assert.equal(record(result.sequence).completed, 3)
+    assert.equal(record(result.sequence).completed, 4)
+    assert.equal(record(result.sequence).total, 4)
     assert.equal(result.image, undefined)
     const oracle = record(JSON.parse(await readFile(path.join(directory, 'result.json'), 'utf8')))
     assert.equal(oracle.pid, pid)
     assert.equal(oracle.title, title)
-    assert.equal(oracle.value, query, 'Chinese replacement must reach the real native TextBox')
+    assert.equal(oracle.value, query, 'Chinese append must reach the real native TextBox')
     assert.equal(oracle.clicks, 1, 'The real WinForms click handler must run exactly once')
     const pictured = await measured('native-explicit-window-image', () => execute({ action: 'observe', pid, window: ready.window, screenshot: true }))
     assert(pictured.image && Buffer.from(pictured.image.png, 'base64').subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))

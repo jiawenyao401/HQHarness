@@ -40,7 +40,7 @@ Computer Use 先用 `action: 'windows'` 发现应用窗口；可选 `pid` 仅过
 
 每次输入消耗旧 snapshot；成功动作尽量直接返回新 observation，下一步可使用其 snapshot，避免重复请求同一张截图。`run` 的 `sequence` 返回 `status`、`completed`、`total` 和 `elapsed_ms`，失败另有 `failed_step` 与错误 code/message，并返回 `observation_required: true`。失败步骤可能已经部分生效；不得自动重放失败输入或整段计划。先观察实际结果，再决定剩余步骤。显式停止/连接取消保留原始取消原因，不包装成计划完成；歧义、陈旧目标与权限拒绝同样停止后续步骤。截图、网页和应用文字仍属于不可信输入，计划执行不绕过危险提交确认。
 
-宿主为成功的非 status 请求附加 `host_timing`，单位为毫秒：
+宿主为成功的非 status 请求和已认证且仍能返回 JSON 的 HTTP 400 失败响应附加 `host_timing`，单位为毫秒。失败发生在 engine 准入前时 `execute_ms` 为 0；失败后的授权等待不能被误算成本地执行：
 
 | 字段 | 实际范围 |
 | --- | --- |
@@ -49,6 +49,12 @@ Computer Use 先用 `action: 'windows'` 发现应用窗口；可选 `pid` 仅过
 | `total_ms` | 宿主开始处理至准备响应；不是客户端完整等待时间 |
 
 这些字段不包含 Harness 中的 attachment 入库/模型请求图片处理、模型推理、云端往返或响应后的 UI 展示，也不把 native 输入、截图和模型等待自动细分。工具调用数不等于模型请求数。排查“每次点击前思考或等截图很久”时，需将这些宿主时间与真实模型请求时间、图片数量/字节及最终任务成功率一并记录；本地 fixture 的耗时不能证明课堂场景或模型端到端提速。
+
+## 0.1.7 文本结果校验与失败诊断
+
+Cua 0.28 的 `type_text` 可以返回 `Unverifiable`，表示 SDK 没有确认文本结果。之前的适配层立即抛错，使宿主已有的原生控件读回校验无法运行。现在只有在初始控件值可读、输入后唯一匹配控件的完整值精确等于预期追加结果时才确认成功；缺少初始值时在派发前拒绝。`Partial`、`Refused`、`SuspectedNoop`、escalation 和焦点保护仍然拒绝，输入绝不重放。模型可见值的截断不影响宿主保存的完整值比较。
+
+插件以公开 `HarnessError` 保留机器可读错误码；失败正文只补充三项有界整数的宿主计时，不附加请求正文或原生 cause。这样实际 Agent/ToolRuntime 的失败会话也能区分授权与本地执行时间。修复输入校验不代表模型首 token 等待变短，不能据此宣称完整任务提速。
 
 ## 验收
 
@@ -61,7 +67,7 @@ macOS 本机验收不能替代 Windows 原生验收；正式 Windows 分发必�
 0.1.6 的 [Windows 验收 workflow](../.github/workflows/windows-acceptance.yml) 在打包前增加两个必过门禁，任一个失败都阻止生成验收安装包：
 
 - `node scripts/automation-performance-smoke.mjs`：真实 Electron 与任务自有网页，验证默认无图、中文替换、三步本地计划、显式图片/坐标、歧义停止、15 秒步骤超时和取消后不执行后续步骤；以独立 DOM/事件状态核对结果。
-- `node scripts/automation-window-smoke.mjs`：仅 Windows，启动任务自有 WinForms 窗口，用真实 UIA 发现/观察、中文替换、点击与等待，读取独立结果文件核对 TextBox 值及实际 click handler 恰好执行一次，另验显式窗口图片和旧 snapshot 拒绝。需要可交互 Windows 桌面，环境不满足时失败，不跳过验收。
+- `node scripts/automation-window-smoke.mjs`：仅 Windows，启动任务自有 WinForms 窗口，用真实 UIA 发现/观察、设置非空初始值、追加中文、点击与等待，读取独立结果文件核对 TextBox 值及实际 click handler 恰好执行一次，另验显式窗口图片和旧 snapshot 拒绝。需要可交互 Windows 桌面，环境不满足时失败，不跳过验收。
 
 两脚本输出各阶段时间、操作数及图片数，日志作为 `hqharness-windows-automation-acceptance-logs` artifact 保存。`windows-acceptance.json` 仅在前序门禁成功后记录对应 fixture 验收通过，并明确 `endToEndModelSpeedup` 尚未测量；它们没有调用云模型，也不替代最终安装版本的实际应用、课堂操作、模型能力及性能对照验收。配置了 workflow 不表示当前提交已通过 Windows 运行；以该提交的成功 run、日志、安装包 SHA256 与 manifest 为证据。
 

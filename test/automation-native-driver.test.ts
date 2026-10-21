@@ -39,11 +39,11 @@ describe('native desktop adapter lifecycle and refusal', () => {
     expect(native.call).toHaveBeenCalledTimes(3)
     await driver.close()
   })
-  it('never silently accepts unverified element text or replays it on another route', async () => {
+  it('leaves unverified element text for the host readback without replaying it on another route', async () => {
     const driver = new NativeInput()
     const signal = new AbortController().signal
     native.call.mockResolvedValueOnce(result({ action: { effect: 2, route: 0 } }))
-    await expect(driver.elementText({ pid: 9, window: '10', token: 'sdk:1' }, 'once only', false, signal)).rejects.toMatchObject({ code: 'INPUT_UNCONFIRMED' })
+    await expect(driver.elementText({ pid: 9, window: '10', token: 'sdk:1' }, 'once only', false, signal)).resolves.toBeUndefined()
     expect(native.call).toHaveBeenCalledOnce()
     expect(native.shutdown).not.toHaveBeenCalled()
     await driver.close()

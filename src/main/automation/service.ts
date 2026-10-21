@@ -97,6 +97,14 @@ export class DesktopAutomationService {
       const started = performance.now()
       let admitted: number | undefined
       let executed: number | undefined
+      const hostTiming = () => {
+        const finished = performance.now()
+        return {
+          queue_and_consent_ms: Math.round((admitted ?? finished) - started),
+          execute_ms: admitted === undefined ? 0 : Math.round((executed ?? finished) - admitted),
+          total_ms: Math.round(finished - started)
+        }
+      }
       // A completed request must retain its response socket so approval timeout
       // can return its real reason instead of becoming a generic fetch failure.
       controller.signal.addEventListener('abort', () => { if (!request.complete) request.destroy() }, { once: true })
@@ -132,11 +140,7 @@ export class DesktopAutomationService {
         controller.signal.throwIfAborted()
         const output = input.operation.action === 'status' ? result : {
           ...result,
-          host_timing: {
-            queue_and_consent_ms: Math.round((admitted ?? started) - started),
-            execute_ms: Math.round((executed ?? performance.now()) - (admitted ?? started)),
-            total_ms: Math.round(performance.now() - started)
-          }
+          host_timing: hostTiming()
         }
         response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(output))
       } catch (error) {
@@ -145,7 +149,7 @@ export class DesktopAutomationService {
         const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
         const code = cause instanceof AutomationError ? cause.code : controller.signal.aborted ? 'CANCELLED' : 'AUTOMATION_FAILED'
         const message = cause instanceof AutomationError ? cause.message : 'The automation operation failed. Observe again or reopen the target and retry.'
-        if (!response.destroyed) response.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ code, error: message }))
+        if (!response.destroyed) response.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ code, error: message, host_timing: hostTiming() }))
       } finally { clearTimeout(timer); this.active.delete(controller) }
     })
     server.requestTimeout = INPUT_TIMEOUT_MS

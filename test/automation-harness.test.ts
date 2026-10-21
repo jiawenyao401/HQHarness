@@ -30,8 +30,8 @@ it('executes both built-in tools with real Agents through the actual Harness loa
         calls.push(input)
         res.setHeader('content-type', 'application/json')
         if (input.operation.action === 'observe' && input.owner === 'session-another-owner') {
-          res.writeHead(403)
-          res.end(JSON.stringify({ error: 'The user declined automation access', code: 'DENIED' }))
+          res.writeHead(400)
+          res.end(JSON.stringify({ error: 'The user declined automation access', code: 'DENIED', host_timing: { queue_and_consent_ms: 30, execute_ms: 0, total_ms: 30 } }))
         } else if (input.operation.action === 'observe') {
           res.end(JSON.stringify({ snapshot: 'frame-1', coordinates: { width: 1000, height: 600 }, image: { png: 'AA==' } }))
         } else res.end(JSON.stringify({ available: true }))
@@ -67,6 +67,15 @@ it('executes both built-in tools with real Agents through the actual Harness loa
           const denied = await ctx.tools.execute({ callId: name + '-denied', name, arguments: { action: 'observe' }, agent: second, signal: new AbortController().signal })
           assert.equal(denied.isError, true)
           assert(denied.content.some(block => block.text?.includes('declined automation access')))
+          assert.deepEqual(denied.error?.info, { name: 'HarnessError', code: 'DENIED' })
+          assert.equal(Object.hasOwn(denied, 'value'), false)
+          const failureText = denied.content.filter(block => block.type === 'text').map(block => block.text).join(' ')
+          const failureTiming = /host_timing=(\\{[^}]+\\})/.exec(failureText)
+          assert(failureTiming, 'Native failure timing was lost before the model-facing result')
+          assert.deepEqual(JSON.parse(failureTiming[1]), { queue_and_consent_ms: 30, execute_ms: 0, total_ms: 30 })
+          const stale = await ctx.tools.execute({ callId: name + '-stale', name, arguments: { action: 'click', snapshot: 'expired', x: 1, y: 1 }, agent, signal: new AbortController().signal })
+          assert.equal(stale.isError, true)
+          assert.deepEqual(stale.error?.info, { name: 'HarnessError', code: 'STALE_SNAPSHOT' })
         }
         assert.deepEqual(calls.map(call => call.owner), ['session-native-owner', 'session-native-owner', 'session-another-owner', 'session-native-owner', 'session-native-owner', 'session-another-owner'])
         console.log('AUTOMATION_HARNESS_PASS ' + JSON.stringify(schemas.map(schema => schema.name)))
