@@ -23,6 +23,8 @@ preset/
 }
 ```
 
+HQHarness keeps preset search and local package import in Settings → Agent presets. This page has no external community catalog entry.
+
 The settings page exports custom presets. The 0.1.7 registry supplies the declared plugin list and display metadata; the export does not include referenced skills, plugins, or other files. Review such references before sharing a package. Model-provider settings, API keys, credentials, sessions, and workspace files are not added.
 
 Import is a two-step operation. DSH Desktop first validates and previews the archive, then writes it only after confirmation. Existing preset identifiers are never overwritten: the user must choose a new identifier. Installation writes to a temporary directory, validates the YAML plugin list, and atomically moves it into the legacy preset root. Desktop converts it to a 0.1.7 Profile entry at the next launch, so the new preset requires a restart. The original directory and a backup of existing legacy presets are retained.

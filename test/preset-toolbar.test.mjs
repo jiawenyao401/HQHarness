@@ -11,7 +11,7 @@ function visit(node) {
 }
 visit(ast)
 
-it.each(['en', 'zh'])('keeps preset actions beside the heading with working search/import/browse (%s)', lang => {
+it.each(['en', 'zh'])('keeps search and import beside the heading without a community action (%s)', lang => {
   const Button = () => {}
   const open = vi.fn()
   const setSearch = vi.fn()
@@ -31,11 +31,13 @@ it.each(['en', 'zh'])('keeps preset actions beside the heading with working sear
   walk(tree)
   const heading = nodes.find(n => n.props?.['data-dsh-preset-heading'] === '')
   const actions = heading.props.children[1].props.children
+  expect(actions).toHaveLength(1)
+  expect(actions[0].props.children).toBe('desktopImport')
   expect(actions.every(n => n.type === Button && n.props.variant === 'outline')).toBe(true)
   const input = nodes.find(n => n.props?.type === 'file')
   const click = vi.fn(); input.props.ref.current = { click }
   actions[0].props.onClick(); expect(click).toHaveBeenCalledOnce()
-  actions[1].props.onClick(); expect(open).toHaveBeenCalledWith('https://www.dshdesktop.com/preset/', '_blank', 'noopener,noreferrer')
+  expect(open).not.toHaveBeenCalled()
   nodes.find(n => n.props?.type === 'search').props.onChange({ target: { value: 'test' } })
   expect(setSearch).toHaveBeenCalledWith('test')
 })

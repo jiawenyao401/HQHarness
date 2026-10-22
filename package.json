@@ -1,6 +1,6 @@
 {
   "name": "hqharness",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "HQHarness — a local-first, cross-platform AI agent workspace powered by DeepSeek Harness.",
   "private": true,
   "type": "module",
