@@ -1,6 +1,8 @@
-# HQHarness team model access
+# HQHarness AgentOS model access compatibility
 
-The built-in `hqharness-model-access` plugin adds a card to **Settings → Models** and a managed provider to the existing Harness LLM service. It uses the official Pi AI adapter; sessions, tools and model message conversion remain owned by Harness.
+Desktop uses [Huaqing Switch](huaqing-switch-integration.md) as its model source and no longer starts the AgentOS bridge or employee-login editor. The implementation below is retained for explicitly selected standalone deployments and its existing compatibility tests.
+
+In that mode, `hqharness-model-access` supplies a managed provider to the existing Harness LLM service. It uses the official Pi AI adapter; sessions, tools and model message conversion remain owned by Harness.
 
 ## Policy
 

@@ -15,7 +15,7 @@ Este repositório fornece código-fonte e processos de compilação nativa. Site
 ## Recursos
 
 - Electron inicia o runtime e a interface web existentes do Harness
-- Seleção de espaços de trabalho, provedores de modelos, perfis e sessões
+- Seleção de espaços de trabalho, conexões de modelos com Huaqing Switch, perfis e sessões
 - Importação/exportação `.dshpreset` e ferramentas PPTX, DOCX e XLSX
 - Safe Mode, recuperação de plugins e diagnóstico de inicialização; se a interface normal não abrir, inicie com `--safe-mode`
 - Telefone pareado por LAN ou Cloudflare Quick Tunnel opcional, com Pinggy como alternativa

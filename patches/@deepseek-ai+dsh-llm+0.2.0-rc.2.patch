@@ -1,0 +1,20 @@
+diff --git a/node_modules/@deepseek-ai/dsh-llm/lib/index.js b/node_modules/@deepseek-ai/dsh-llm/lib/index.js
+--- a/node_modules/@deepseek-ai/dsh-llm/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-llm/lib/index.js
+@@ -1897,7 +1897,7 @@
+ 		* @returns detached provider metadata in registration order.
+ 		*/
+ 		listProviders() {
+-			return [...this.adapters.values()].map(({ provider }) => ({ ...provider }));
++			return [...this.adapters.values()].filter(({ provider }) => process.env.HQHARNESS_MODEL_SOURCE !== "huaqing-switch" || provider.id === "huaqing-switch").map(({ provider }) => ({ ...provider }));
+ 		}
+ 		/**
+ 		* Declare provider routes an adapter plugin can activate through
+@@ -2234,6 +2234,7 @@
+ 			});
+ 		}
+ 		registration(provider) {
++			if (process.env.HQHARNESS_MODEL_SOURCE === "huaqing-switch" && provider !== "huaqing-switch") throw new LlmError("此会话使用旧模型，请在 Huaqing Switch 设置默认连接后新建会话 / Select a default connection in Huaqing Switch and start a new session", "HUAQING_SWITCH_REQUIRED");
+ 			const registration = this.adapters.get(provider);
+ 			if (!registration) throw new LlmError(`no adapter registered for provider "${provider}"`, "NO_ADAPTER");
+ 			return registration;

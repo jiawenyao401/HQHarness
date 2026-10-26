@@ -3,6 +3,21 @@ import { createRequire } from 'node:module'
 import vm from 'node:vm'
 import { expect, it } from 'vitest'
 
+it('does not register direct-provider model editors when Desktop uses Huaqing Switch', async () => {
+  const require = createRequire(import.meta.url)
+  const path = require.resolve('@deepseek-ai/dsh-client-ui-settings-models/package.json').replace('package.json', 'lib/client.js')
+  const source = await readFile(path, 'utf8')
+  let apply
+  vm.runInNewContext(source, {
+    hqModelSource: 'huaqing-switch',
+    window: { __ModuleLoader__: { load({ factory }) {
+      apply = factory(() => ({})).apply
+    } } }
+  })
+  // No settings, credentials or slot services are accessed in this mode.
+  expect(() => apply({})).not.toThrow()
+})
+
 it.each(['DeepSeekModelsEditor', 'ModelListEditor'])('%s expands options and edits capacity without losing other capabilities', async (editorName) => {
   const require = createRequire(import.meta.url)
   const path = require.resolve('@deepseek-ai/dsh-client-ui-settings-models/package.json').replace('package.json', 'lib/client.js')

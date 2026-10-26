@@ -15,7 +15,7 @@ HQHarness 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-h
 ## 功能
 
 - Electron 自动启动现有 Harness runtime 与 Web UI
-- 原生工作区选择、模型服务商配置、Profile 和会话管理
+- 原生工作区选择、Huaqing Switch 模型连接、Profile 和会话管理
 - `.dshpreset` 预设导入导出，内置 PPTX、DOCX、XLSX 工具
 - Safe Mode、插件恢复与启动诊断；正常界面无法打开时可使用 `--safe-mode` 启动
 - 手机配对，支持局域网与可选 Cloudflare Quick Tunnel 临时公网隧道，Pinggy 作为后备线路

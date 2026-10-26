@@ -15,7 +15,7 @@ This repository contains the HQHarness source and native build workflows. No HQH
 ## Features
 
 - Electron host that starts the existing Harness runtime and Web UI
-- Native workspace picker, model-provider configuration, profiles and sessions
+- Native workspace picker, Huaqing Switch model connections, profiles and sessions
 - Portable `.dshpreset` import/export and bundled PPTX, DOCX and XLSX tooling
 - Safe Mode (`--safe-mode` when the normal UI cannot open), plugin recovery and startup diagnostics
 - Paired phone access over a local network or an optional Cloudflare Quick Tunnel, with Pinggy as a fallback

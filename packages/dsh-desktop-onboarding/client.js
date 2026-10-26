@@ -45,11 +45,11 @@ window.__ModuleLoader__.load({
     const en = {
       brandName: 'HQHarness',
       step0Title: 'Welcome to HQHarness',
-      declarationBody: 'HQHarness is a local-first AI workspace built on the open-source Harness runtime. Configure a model provider to start conversations, work with your files, and use compatible plugins.\n\nYour workspace files and app settings stay on this device. When you use a model or a network-enabled plugin, it may send data to its service provider according to your configuration.',
+      declarationBody: 'HQHarness is a local-first AI workspace built on the open-source Harness runtime. Connect through Huaqing Switch to start conversations, work with your files, and use compatible plugins.\n\nYour workspace files and app settings stay on this device. When you use a model or a network-enabled plugin, it may send data to its service provider according to your configuration.',
       desktopIntroTitle: 'Before you begin',
-      desktopIntroBody: 'Choose your provider and model in Settings, then select a workspace for your files. You can also enable or disable plugins in Settings.',
+      desktopIntroBody: 'Start Huaqing Switch and select a default connection there. HQHarness connects automatically; model configuration is managed in Huaqing Switch.',
       desktopIntroFeedback: 'You can review the bundled Harness version and check update availability from About HQHarness.',
-      configureModel: 'Configure a model',
+      configureModel: 'Start using HQHarness',
       later: 'Maybe later',
       saveFailed: 'Could not save your acknowledgment. Please try again.'
     }
@@ -57,11 +57,11 @@ window.__ModuleLoader__.load({
     const zh = {
       brandName: 'HQHarness',
       step0Title: '欢迎使用 HQHarness',
-      declarationBody: 'HQHarness 是基于开源 Harness 运行时构建的本地优先 AI 工作空间。配置模型提供方后，即可开始对话、处理本地文件并使用兼容插件。\n\n工作区文件和应用设置保存在本机。使用模型或联网插件时，它们可能根据你的配置将数据发送给对应服务提供方。',
+      declarationBody: 'HQHarness 是基于开源 Harness 运行时构建的本地优先 AI 工作空间。连接 Huaqing Switch 后，即可开始对话、处理本地文件并使用兼容插件。\n\n工作区文件和应用设置保存在本机。使用模型或联网插件时，它们可能根据你的配置将数据发送给对应服务提供方。',
       desktopIntroTitle: '开始之前',
-      desktopIntroBody: '在设置中选择提供方和模型，再为本地文件选择工作空间。你也可以在设置中启用或关闭插件。',
+      desktopIntroBody: '启动 Huaqing Switch 并在其中设置默认连接，HQHarness 会自动连接；模型配置统一在 Huaqing Switch 中管理。',
       desktopIntroFeedback: '可在「关于 HQHarness」中查看内置 Harness 版本和更新服务状态。',
-      configureModel: '去配置模型',
+      configureModel: '开始使用 HQHarness',
       later: '稍后再说',
       saveFailed: '未能保存确认，请重试。'
     }
@@ -211,7 +211,7 @@ window.__ModuleLoader__.load({
                 variant: 'primary',
                 disabled: saving,
                 onClick: () => finish(() => {
-                  if (typeof openSection === 'function') openSection(MODELS_SECTION_ID)
+                  if (window.hqModelSource !== 'huaqing-switch' && typeof openSection === 'function') openSection(MODELS_SECTION_ID)
                 })
               },
               t('configureModel')

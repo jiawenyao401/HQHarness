@@ -15,7 +15,7 @@ HQHarness のソースとネイティブビルド手順を提供します。HQHa
 ## 機能
 
 - Electron による既存 Harness runtime と Web UI の自動起動
-- ワークスペース選択、モデル設定、Profile とセッション
+- ワークスペース選択、Huaqing Switch によるモデル接続、Profile とセッション
 - `.dshpreset` の入出力と PPTX、DOCX、XLSX ツール
 - Safe Mode、プラグイン復旧、起動診断（通常画面が開かない場合は `--safe-mode` で起動）
 - LAN または任意の Cloudflare Quick Tunnel によるスマートフォン連携。Pinggy に切り替える予備経路も提供

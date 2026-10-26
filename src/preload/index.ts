@@ -175,6 +175,8 @@ contextBridge.exposeInMainWorld('hqDesktopAutomation', {
   stop: () => ipcRenderer.invoke('hq:automation:stop')
 })
 
+contextBridge.exposeInMainWorld('hqModelSource', 'huaqing-switch')
+
 contextBridge.exposeInMainWorld('hqTeamModelAccess', {
   status: () => ipcRenderer.invoke('hq:model-access:status'),
   configure: (configuration: unknown) => ipcRenderer.invoke('hq:model-access:configure', configuration),
