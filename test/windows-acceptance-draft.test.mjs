@@ -34,7 +34,11 @@ async function fixture() {
     if (args[0] === 'api' && args[1] === `repos/${env.GITHUB_REPOSITORY}`) {
       return JSON.stringify({ full_name: env.GITHUB_REPOSITORY, private: true })
     }
-    if (args[0] === 'api' && args[1].includes('/releases/tags/')) return JSON.stringify(release)
+    // GitHub's tag endpoint cannot resolve an unpublished draft, even after all
+    // assets are uploaded. gh release view also resolves the pending draft tag.
+    if (args[0] === 'api' && args[1].includes('/releases/tags/')) throw new Error('HTTP 404: Not Found')
+    if (args[0] === 'release' && args[1] === 'view') return JSON.stringify({ databaseId: release.id })
+    if (args[0] === 'api' && args[1] === `repos/${env.GITHUB_REPOSITORY}/releases/456`) return JSON.stringify(release)
     if (args[0] === 'release' && args[1] === 'create') return release.html_url
     throw new Error(`Unexpected gh invocation: ${args.join(' ')}`)
   }
@@ -53,7 +57,7 @@ it('requires an explicit manual request and verifies the actual private reposito
   expect(() => requirePrivateDestination(env, () => JSON.stringify({ private: true, full_name: 'other/repo' }))).toThrow('current private repository')
 })
 
-it('uploads the verified installer, BOM-aware manifest and both logs to a unique draft bound to the source SHA', async () => {
+it('verifies a fully uploaded unpublished draft when the REST tag endpoint returns 404', async () => {
   const { root, manifest, calls, gh } = await fixture()
   const result = await deliverWindowsAcceptanceDraft(root, env, gh)
   expect(result).toMatchObject({ tag: 'acceptance-windows-123-2', source: env.GITHUB_SHA, draft: true,
@@ -62,7 +66,26 @@ it('uploads the verified installer, BOM-aware manifest and both logs to a unique
   expect(create.slice(0, 3)).toEqual(['release', 'create', result.tag])
   expect(create.slice(3, 7).map(name => path.basename(name))).toEqual([file, 'windows-acceptance.json', ...logNames])
   expect(create.slice(7, 13)).toEqual(['--repo', env.GITHUB_REPOSITORY, '--target', env.GITHUB_SHA, '--draft', '--prerelease'])
+  expect(calls).toContainEqual(['release', 'view', result.tag, '--repo', env.GITHUB_REPOSITORY, '--json', 'databaseId'])
+  expect(calls).toContainEqual(['api', `repos/${env.GITHUB_REPOSITORY}/releases/456`])
   expect(calls.at(-1)).toEqual(['api', `repos/${env.GITHUB_REPOSITORY}`])
+})
+
+it.each([undefined, null, 0, -1, '456', '456/other', Number.MAX_SAFE_INTEGER + 1])('rejects an invalid draft database ID %s', async databaseId => {
+  const { root, calls, gh } = await fixture()
+  const invalidIdGh = args => args[0] === 'release' && args[1] === 'view'
+    ? JSON.stringify({ databaseId }) : gh(args)
+  await expect(deliverWindowsAcceptanceDraft(root, env, invalidIdGh)).rejects.toThrow('draft release ID')
+  expect(calls.some(args => args[0] === 'api' && args[1].includes('/releases/'))).toBe(false)
+})
+
+it('does not report success when the pending draft cannot be resolved', async () => {
+  const { root, gh } = await fixture()
+  const missingDraftGh = args => {
+    if (args[0] === 'release' && args[1] === 'view') throw new Error('release not found')
+    return gh(args)
+  }
+  await expect(deliverWindowsAcceptanceDraft(root, env, missingDraftGh)).rejects.toThrow('release not found')
 })
 
 it.each(['source', 'sha256', 'signed', 'file'])('rejects a mismatched %s manifest before any upload', async key => {
@@ -83,13 +106,17 @@ it.each(['missing log', 'directory', 'duplicate installer'])('rejects %s before 
   expect(calls.every(args => args[0] === 'api')).toBe(true)
 })
 
-it.each(['published', 'wrong commit', 'incomplete asset', 'wrong size'])('fails explicitly if server confirmation reports %s', async failure => {
+it.each(['wrong ID', 'published', 'wrong commit', 'wrong tag', 'not prerelease', 'incomplete asset', 'wrong size'])('fails explicitly if server confirmation reports %s', async failure => {
   const { root, release, gh } = await fixture()
+  const confirmGh = args => args[0] === 'release' && args[1] === 'view' ? JSON.stringify({ databaseId: 456 }) : gh(args)
+  if (failure === 'wrong ID') release.id = 457
   if (failure === 'published') release.draft = false
   if (failure === 'wrong commit') release.target_commitish = 'main'
+  if (failure === 'wrong tag') release.tag_name = 'another-tag'
+  if (failure === 'not prerelease') release.prerelease = false
   if (failure === 'incomplete asset') release.assets[0].state = 'new'
   if (failure === 'wrong size') release.assets[0].size += 1
-  await expect(deliverWindowsAcceptanceDraft(root, env, gh)).rejects.toThrow(/draft bound|upload is incomplete/)
+  await expect(deliverWindowsAcceptanceDraft(root, env, confirmGh)).rejects.toThrow(/draft bound|upload is incomplete/)
 })
 
 it('keeps write permission exclusive to manual delivery and preserves every native build gate in the shared job', async () => {

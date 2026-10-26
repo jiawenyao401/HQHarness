@@ -57,9 +57,13 @@ export async function deliverWindowsAcceptanceDraft(root, env = process.env, gh 
   gh(['release', 'create', tag, ...files, '--repo', repository, '--target', source,
     '--draft', '--prerelease', '--title', `Windows acceptance ${env.GITHUB_RUN_ID}/${env.GITHUB_RUN_ATTEMPT}`,
     '--notes', `Unsigned Windows acceptance installer from ${source}.\nSHA-256: ${manifest.sha256}\nPrivate delivery only. Do not publish this draft. Installed-app acceptance is still required.`])
-  const release = JSON.parse(gh(['api', `repos/${repository}/releases/tags/${tag}`]))
+  // The REST tag endpoint returns 404 for an unpublished draft. gh resolves its
+  // pending tag too; then confirm the actual release and uploads by numeric ID.
+  const { databaseId } = JSON.parse(gh(['release', 'view', tag, '--repo', repository, '--json', 'databaseId']))
+  if (!Number.isSafeInteger(databaseId) || databaseId <= 0) throw new Error('Expected a valid draft release ID.')
+  const release = JSON.parse(gh(['api', `repos/${repository}/releases/${databaseId}`]))
   requirePrivateDestination(env, gh)
-  if (release.draft !== true || release.prerelease !== true || release.tag_name !== tag || release.target_commitish !== source) {
+  if (release.id !== databaseId || release.draft !== true || release.prerelease !== true || release.tag_name !== tag || release.target_commitish !== source) {
     throw new Error('Delivery did not remain a private draft bound to the expected source commit.')
   }
   for (const expected of assets) {
