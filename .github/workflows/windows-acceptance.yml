@@ -5,6 +5,11 @@ on:
     branches:
       - codex/hqharness-automation
   workflow_dispatch:
+    inputs:
+      draft_delivery:
+        description: Deliver to a private draft when Actions artifact quota is unavailable
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,108 +20,17 @@ concurrency:
 
 jobs:
   windows:
-    runs-on: windows-2022
-    timeout-minutes: 60
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - name: Check native build disk space
-        shell: pwsh
-        run: |
-          $disk = Get-PSDrive -Name C
-          Write-Host ('Available disk: {0:N1} GiB' -f ($disk.Free / 1GB))
-          if ($disk.Free -lt 50GB) {
-            Write-Host 'Fresh runner: no task cache to reclaim. Budget: 12 GiB for npm, Office/PPT staging, tests and installer.'
-          }
-          if ($disk.Free -lt 12GB) { throw 'Insufficient disk space for the 12 GiB task build budget.' }
-      - run: npm ci
-      - run: npm run typecheck
-      - name: Check Git Bash signing fixture path compatibility
-        run: npx --no-install vitest run test/signed-test-build.test.ts
-      - name: Verify structured browser plans in real Electron
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force .build/automation-acceptance | Out-Null
-          node scripts/automation-performance-smoke.mjs 2>&1 | Tee-Object -FilePath .build/automation-acceptance/browser-local-execution.log
-          if ($LASTEXITCODE -ne 0) { throw 'Structured browser local-execution acceptance failed.' }
-      - name: Verify native Windows UIA plans against an owned WinForms application
-        shell: pwsh
-        run: |
-          node scripts/automation-window-smoke.mjs 2>&1 | Tee-Object -FilePath .build/automation-acceptance/windows-uia-local-execution.log
-          if ($LASTEXITCODE -ne 0) { throw 'Native Windows UIA local-execution acceptance failed.' }
-      - name: Run all regression tests
-        run: npm test -- --maxWorkers=4
-      - name: Qualify Windows native binaries and real Agent tool execution
-        run: node scripts/automation-native-package-smoke.mjs
-      - name: Verify actual native authorization timeout and retry
-        run: node scripts/automation-consent-smoke.mjs
-      - name: Build unsigned acceptance installer on Windows
-        shell: pwsh
-        run: npm run package:win -- '--config.nsis.artifactName=hqharness-${version}-${os}-${arch}-acceptance.${ext}'
-      - name: Verify SDK and real Agent tools from the actual packaged dependency closure
-        shell: pwsh
-        run: node scripts/automation-native-package-smoke.mjs 'dist/win-unpacked/HQHarness.exe' 'dist/win-unpacked/resources/app.asar'
-      - name: Record exact artifact identity and outstanding manual acceptance
-        shell: pwsh
-        run: |
-          $installer = @(Get-ChildItem dist -File -Filter '*-acceptance.exe')
-          if ($installer.Count -ne 1) { throw 'Expected exactly one acceptance installer.' }
-          $installer = $installer[0]
-          $hash = Get-FileHash $installer.FullName -Algorithm SHA256
-          $manifest = Get-Content package.json -Raw | ConvertFrom-Json
-          $automation = Get-Content packages/hqharness-automation/package.json -Raw | ConvertFrom-Json
-          [ordered]@{
-            version = $manifest.version
-            source = '${{ github.sha }}'
-            automationVersion = $automation.version
-            actualAgentToolExecution = 'passed'
-            nativeSessionRecovery = 'passed (SDK lifecycle; installed UI pending)'
-            nativeConsentTimeoutAndRetry = 'passed (actual Electron dialogs; installed UI pending)'
-            losslessScreenshotOutput = 'passed'
-            automationHistoryPruning = 'passed (actual ASAR helper, services and Agent pre-step; original history and semantic rows preserved)'
-            structuredBrowserLocalExecution = 'passed (real Electron owned page; no model requests)'
-            nativeWindowsUiaLocalExecution = 'passed (owned WinForms application; real UIA text value and click handler verified; no model requests)'
-            localExecutionTimingEvidence = 'stage timings and image counts in the hqharness-windows-automation-acceptance-logs artifact'
-            endToEndModelSpeedup = 'not measured; local fixture timing is not model or classroom latency'
-            file = $installer.Name
-            sha256 = $hash.Hash.ToLowerInvariant()
-            signed = $false
-            installedApp = 'pending user acceptance'
-            computerInput = 'pending user acceptance'
-            browserUse = 'pending user acceptance'
-          } | ConvertTo-Json | Set-Content dist/windows-acceptance.json -Encoding utf8
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hqharness-windows-x64-acceptance
-          retention-days: 14
-          if-no-files-found: error
-          path: |
-            dist/*-acceptance.exe
-            dist/windows-acceptance.json
-      - name: Preserve native automation acceptance logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hqharness-windows-automation-acceptance-logs
-          retention-days: 14
-          if-no-files-found: warn
-          path: .build/automation-acceptance/*.log
-      - name: Preserve installer diagnostics on a failed build
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hqharness-windows-failed-build-diagnostics
-          retention-days: 7
-          if-no-files-found: warn
-          path: |
-            dist/*.exe
-            dist/windows-acceptance.json
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.draft_delivery }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/windows-acceptance-build.yml
+    with:
+      draft_delivery: false
 
-# This produces the explicitly requested manual-acceptance installer. It never
-# publishes a Release. Formal release.yml still requires native GUI/input smoke
-# and installed-app/signing qualification before distribution.
+  windows-draft:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.draft_delivery }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/windows-acceptance-build.yml
+    with:
+      draft_delivery: true

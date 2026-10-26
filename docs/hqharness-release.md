@@ -58,6 +58,20 @@ workflow 将证书导入临时 keychain，签名 app 和 DMG，提交 Apple 公�
 
 ## Windows 自有签名与安装验收
 
+### 私有仓库的 Windows 验收包交付
+
+[`HQHarness Windows acceptance installer`](../.github/workflows/windows-acceptance.yml) 默认在推送或手动运行后上传 Actions artifacts，token 只有 `contents: read`。若 Actions 存储配额不足，可在默认分支已包含该入口后，手动运行并勾选 `draft_delivery`：
+
+```bash
+gh workflow run windows-acceptance.yml --repo jiawenyao401/HQHarness --ref codex/hqharness-automation -f draft_delivery=true
+```
+
+两种方式执行同一套完整原生 Windows 测试、打包及实际 ASAR 验证。草稿方式跳过 artifact 上传，仅该手动 job 获得 `contents: write`。交付前后会通过 API 检查当前仓库仍为私有，校验清单绑定当前提交且安装器 SHA-256 一致，再把安装器、`windows-acceptance.json` 和两份原生验收日志上传至唯一的 `acceptance-windows-<run-id>-<attempt>` 草稿。工作流摘要记录下载入口、提交和 SHA-256；下载后须按清单复核散列，再进行安装验收。
+
+该草稿只作私有传输，不得发布。安装器仍未签名，正式签名和安装验收要求不变。上传或回读校验失败会使 job 失败，已创建的草稿保留供排查；重跑使用新的 attempt 标签，不覆盖旧附件。
+
+### 正式签名与安装验收
+
 当前签名适配采用 SafeNet UKey 和固定 SHA-256 的 Jsign，不借用上游设备、公司或 secrets。由维护者注册专用 macOS ARM64 self-hosted runner，标签为 `self-hosted`、`macOS`、`ARM64`、`hqharness-signing`，安装 SafeNet Authentication Client，并确认 `/usr/local/lib/libeTPkcs11.dylib` 可读。
 
 创建受保护的 `hqharness-signing` environment 和 secret `HQHARN_WINDOWS_SIGNING_PIN`，另创建 repository variable `HQHARN_WINDOWS_PUBLISHER_NAME`，其值须精确等于 `brand.config.json.publisherName` 和自有证书发行者。设备或证书类型不同，应先实现并验证新的签名适配，不能绕过当前签名门禁。
