@@ -22,21 +22,28 @@
 - id: ui-settings-account
   disabled: true
 
+# HQHarness exposes its bundled automation rather than plugin installation.
+# Keep the host services and Settings plugin slots used by the two tools.
+- id: ui-plugin-manager
+  disabled: true
+
+- id: ui-settings-plugin-inventory
+  disabled: true
+
 - insert:
     - id: dsh-desktop-client-ui
       name: dsh-desktop-client-ui
 
     - id: dsh-desktop-workbenches
       name: dsh-desktop-workbenches
+      disabled: true
       config:
         root: !!js dshHomePath('desktop-workbenches')
 
     - id: dsh-desktop-onboarding
       name: dsh-desktop-onboarding
 
-    # DSH Desktop owns the fixed-target dsh-market installer and its lightweight
-    # settings entry. After dshmarket is installed and Harness restarts, the
-    # community plugin replaces the placeholder with its complete market UI.
+    # Preserve Profile/generation infrastructure without contributing a market UI.
     - id: dsh-desktop-market-installer
       name: dsh-desktop-market-installer
 

@@ -1,6 +1,6 @@
 # HQHarness 发布指南
 
-HQHarness 尚未配置自有发布仓库、更新服务、签名证书和官网。当前源码和工作流可以构建独立品牌的应用；本指南描述配置完成后的正式发布流程，不代表本次改造已经发布或完成全部平台验收。
+HQHarness 的发布仓库为私有仓库 `jiawenyao401/HQHarness`。更新服务、签名证书和官网尚未配置；未签名验收包须明确标为 Pre-release，不能视为已通过签名、公证或全部已安装应用验收。以下正式发布流程仍要求对应的签名和安装门禁。
 
 ## 发布配置
 
@@ -8,7 +8,7 @@ HQHarness 尚未配置自有发布仓库、更新服务、签名证书和官网�
 
 | 字段 | 默认值 | 配置要求 |
 | --- | --- | --- |
-| `releaseRepository` | `null` | 自有 GitHub `owner/repo`，必须与执行 workflow 的仓库一致 |
+| `releaseRepository` | `jiawenyao401/HQHarness` | 自有 GitHub `owner/repo`，必须与执行 workflow 的仓库一致 |
 | `publisherName` | `null` | 自有 Windows 签名证书的准确发行者名称 |
 | `updateBaseUrl` | `null` | 自有 HTTPS 更新服务基址，按客户端的 metadata/archive/catalog 路径契约部署 |
 | `desktopServiceUrl` | `null` | 自有桌面服务；未配置时不请求上游业务服务 |

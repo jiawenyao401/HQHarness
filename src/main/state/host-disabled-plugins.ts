@@ -15,6 +15,7 @@ interface PatchRow {
   insert?: unknown
   group?: unknown
   config?: unknown
+  disabled?: unknown
 }
 
 function insertedRows(text: string): { id: string; name: string }[] {
@@ -24,6 +25,8 @@ function insertedRows(text: string): { id: string; name: string }[] {
   const scan = (candidate: unknown): void => {
     if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) return
     const row = candidate as PatchRow
+    // A product-disabled host row must not be restored by legacy market state.
+    if (row.disabled === true) return
     if (typeof row.id === 'string' && typeof row.name === 'string') rows.push({ id: row.id, name: row.name })
     if (row.group && Array.isArray(row.config)) row.config.forEach(scan)
   }

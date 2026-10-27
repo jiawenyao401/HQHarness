@@ -1,0 +1,67 @@
+import { spawn } from 'node:child_process'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { runInNewContext } from 'node:vm'
+import { expect, it } from 'vitest'
+import { HarnessRuntime } from '../src/main/runtime/harness-runtime'
+import { ensureSafeModeProfile, SAFE_MODE_PROFILE } from '../src/main/state/safe-mode-profile'
+import { resolveTestNodeExecutable } from './node-executable'
+import { projectRoot } from './patch-path'
+
+it.each(['web', SAFE_MODE_PROFILE])('boots %s without market modules and retains its bundled client surface', async (profile) => {
+  const home = await mkdtemp(join(tmpdir(), 'hq-focused-runtime-'))
+  const runtime = new HarnessRuntime({
+    dshEntryPath: join(projectRoot, 'node_modules/@deepseek-ai/dsh/lib/bin.js'),
+    nodeEntryPath: join(projectRoot, 'build/harness-node-entry.mjs'),
+    nodeExecutablePath: resolveTestNodeExecutable(),
+    dshPatchPath: join(projectRoot, 'build/dsh-desktop.patch.yml'),
+    dshSafePatchPath: join(projectRoot, 'build/dsh-desktop-safe.patch.yml'),
+    dshHome: home,
+    logPath: join(home, 'harness.log'),
+    launchProcess: (executable, args, options) => spawn(executable, args, options),
+    startupTimeoutMs: 30_000,
+    preferredPort: 0,
+    onChanged() {}
+  })
+  try {
+    if (profile === SAFE_MODE_PROFILE) await ensureSafeModeProfile(home)
+    await runtime.start(home, profile)
+    const state = runtime.snapshot()
+    expect(state.phase, state.logs.join('\n')).toBe('ready')
+    if (!state.url || !state.authToken) throw new Error('Missing actual Harness endpoint')
+    const login = await fetch(`${state.url}/?token=${encodeURIComponent(state.authToken)}`, { redirect: 'manual' })
+    const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
+    const html = await (await fetch(state.url, { headers: { Cookie: cookie } })).text()
+    const bootScript = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gu)]
+      .map(match => match[1]).find(script => script?.includes('__DSH_BOOT__'))
+    if (!bootScript) throw new Error('Missing actual client graph')
+    const window: { __DSH_BOOT__?: { entries?: { id: string }[] } } = {}
+    runInNewContext(bootScript, { window, globalThis: window })
+    const ids = window.__DSH_BOOT__?.entries?.map(entry => entry.id)
+    if (profile === 'web') expect(ids).toContain('hqharness-automation')
+    else expect(ids).not.toContain('hqharness-automation')
+    // The model backend stays loaded without contributing an employee-login editor.
+    expect(ids).not.toContain('hqharness-model-access')
+    expect(ids).toContain('@deepseek-ai/dsh-client-ui-settings-plugins')
+    for (const name of ['dsh-desktop-workbenches', 'dsh-desktop-market-installer', '@deepseek-ai/dsh-client-ui-plugin-manager', '@deepseek-ai/dsh-client-ui-settings-plugin-inventory']) {
+      expect(ids).not.toContain(name)
+    }
+    const catalog = await fetch(new URL('/dsh-desktop/workbenches/catalog', state.url), { headers: { Cookie: cookie } })
+    expect(catalog.status).toBe(404)
+    // The product switch is composition-owned, so old saved browser preferences
+    // cannot activate a workbench or hide its previously bound chat sessions.
+    if (profile === 'web') expect(await readFile(join(home, 'desktop-host-sources.patch.yml'), 'utf8')).toContain('disabled: true')
+    const scriptUrls = [...html.matchAll(/<script[^>]+src="([^"]+)"/gu)].map(match => match[1])
+    const bootstrap = scriptUrls.find(src => src?.includes('@deepseek-ai/dsh-client-modules/client.js'))
+    if (!bootstrap) throw new Error('Missing module bootstrap')
+    const response = await fetch(new URL(bootstrap.replaceAll('&amp;', '&'), state.url), { headers: { Cookie: cookie } })
+    expect(response.status).toBe(200)
+    const registered: string[] = []
+    runInNewContext(await response.text(), { window: { __ModuleLoader__: { load: (entry: { id: string }) => registered.push(entry.id) } } })
+    expect(registered).toContain('@deepseek-ai/dsh-client-modules')
+  } finally {
+    await runtime.stop()
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+}, 45_000)

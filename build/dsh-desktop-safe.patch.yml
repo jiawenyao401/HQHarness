@@ -15,6 +15,14 @@
 - id: ui-settings-account
   disabled: true
 
+# Match the product surface in normal mode: recovery must not expose a second
+# route into plugin installation. Keep the settings shell for bundled views.
+- id: ui-plugin-manager
+  disabled: true
+
+- id: ui-settings-plugin-inventory
+  disabled: true
+
 - insert:
     - id: dsh-desktop-client-ui
       name: dsh-desktop-client-ui

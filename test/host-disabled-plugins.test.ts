@@ -14,6 +14,22 @@ const homes: string[] = []
 afterEach(async () => { await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true }))) })
 
 describe('disabled Profile packages in Desktop host patch', () => {
+  it('never re-enables a product-disabled workbench through legacy market switches', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'hq-focused-host-disable-'))
+    homes.push(home)
+    const profile = join(home, 'profiles', 'web')
+    await mkdir(join(profile, '.dsh-market'), { recursive: true })
+    await writeFile(join(profile, '.dsh-market', 'state.json'), JSON.stringify({ disabled: ['dsh-desktop-workbenches'] }))
+    await writeFile(join(profile, 'package.json'), JSON.stringify({ dsh: { profile: { bundles: [] } } }))
+    const userPatch = '- id: dsh-desktop-workbenches\n  disabled: true\n'
+    await writeFile(join(profile, 'cordis.patch.yml'), userPatch)
+    const hostPath = join(home, 'desktop.patch.yml')
+    await writeFile(hostPath, '- insert:\n    - id: dsh-desktop-workbenches\n      name: dsh-desktop-workbenches\n      disabled: true\n')
+
+    expect(await prepareHostDisabledPluginsPatch(home, hostPath)).toBeUndefined()
+    expect(await readFile(join(profile, 'cordis.patch.yml'), 'utf8')).toBe(userPatch)
+  })
+
   it('drops a stale generated host disable when a Profile package is switched off', async () => {
     const home = await mkdtemp(join(tmpdir(), 'dsh-host-disable-'))
     homes.push(home)
