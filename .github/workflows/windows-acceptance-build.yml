@@ -74,8 +74,12 @@ jobs:
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           $manifest = Get-Content package.json -Raw | ConvertFrom-Json
           $automation = Get-Content packages/hqharness-automation/package.json -Raw | ConvertFrom-Json
+          $packaged = Get-Item 'dist/win-unpacked/HQHarness.exe'
+          if ($packaged.VersionInfo.ProductName -ne $manifest.build.productName) { throw 'Packaged Windows product display name differs from the configured brand.' }
           [ordered]@{
             version = $manifest.version
+            productName = $packaged.VersionInfo.ProductName
+            executableName = $packaged.Name
             source = '${{ github.sha }}'
             automationVersion = $automation.version
             actualAgentToolExecution = 'passed'
@@ -84,8 +88,9 @@ jobs:
             losslessScreenshotOutput = 'passed'
             automationHistoryPruning = 'passed (actual ASAR helper, services and Agent pre-step; original history and semantic rows preserved)'
             automationToolRouting = 'passed (actual ASAR guard; web/file preference, explicit user override, next-turn reset and Agent isolation)'
+            automationPtcRouting = 'passed (actual ASAR real Node PTC; controlled GUI binding; refused-input script blocking; explicit new-turn override and reset)'
             structuredBrowserLocalExecution = 'passed (real Electron owned page; no model requests)'
-            nativeWindowsUiaLocalExecution = 'passed (owned WinForms application; real UIA text value and click handler verified; no model requests)'
+            nativeWindowsUiaLocalExecution = 'passed (owned WinForms application; background click while keeper holds foreground, exactly-once double-click activation, real UIA text value and click handler verified; no model requests)'
             localExecutionTimingEvidence = 'stage timings and image counts in the native acceptance logs delivered with this installer'
             endToEndModelSpeedup = 'not measured; local fixture timing is not model or classroom latency'
             file = $installer.Name

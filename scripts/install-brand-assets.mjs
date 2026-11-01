@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const brand = JSON.parse(await readFile(path.join(projectRoot, 'brand.config.json'), 'utf8'))
 const source = path.join(projectRoot, '.build', 'brand', 'icon.png')
 const lightSource = path.join(projectRoot, '.build', 'brand', 'logo-light.png')
 const darkSource = path.join(projectRoot, '.build', 'brand', 'logo-dark.png')
@@ -58,8 +59,8 @@ function replaceIconLink(contents, file) {
  */
 function replaceManifestIcon(contents, file) {
   const manifest = JSON.parse(contents)
-  manifest.name = 'HQHarness'
-  manifest.short_name = 'HQHarness'
+  manifest.name = brand.productName
+  manifest.short_name = brand.productName
   manifest.description = 'Local-first AI agent workspace'
   manifest.theme_color = '#ffffff'
   const icons = Array.isArray(manifest.icons) ? manifest.icons : []
@@ -82,7 +83,7 @@ await copyFile(darkSource, darkDestination)
 await copyFile(path.join(projectRoot, '.build/brand/hqzyai-logomark.svg'), path.join(destinationDirectory, 'hqzyai-logomark.svg'))
 
 const index = await readFile(indexPath, 'utf8')
-await writeFile(indexPath, replaceIconLink(index, path.relative(projectRoot, indexPath)).replace(/<title>[^<]*<\/title>/u, '<title>HQHarness</title>'))
+await writeFile(indexPath, replaceIconLink(index, path.relative(projectRoot, indexPath)).replace(/<title>[^<]*<\/title>/u, `<title>${brand.productName}</title>`))
 
 const manifest = await readFile(manifestPath, 'utf8')
 await writeFile(

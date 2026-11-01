@@ -15,6 +15,56 @@ const hostPlatform = process.platform
 afterEach(() => { Object.defineProperty(process, 'platform', { value: hostPlatform }) })
 beforeEach(() => { native.call.mockReset().mockResolvedValue(result()); native.start.mockReset().mockResolvedValue({ active: true, revived: false }); native.windows.mockReset().mockResolvedValue({ windows: [] }); native.observeWindow.mockReset().mockResolvedValue({ pid: 9, windowId: 10n, snapshotId: 'sdk-snapshot', elements: [], images: [] }); native.shutdown.mockReset().mockResolvedValue(undefined); native.destroy.mockReset() })
 describe('native desktop adapter lifecycle and refusal', () => {
+  it('does not require the target to be foreground for an exact Windows semantic click', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    native.call.mockImplementation(async (_name, args) => {
+      const operation = JSON.parse(String(args))
+      // Reproduce the provider's refusal while HQHarness still owns the
+      // foreground HWND; the accessibility route needs no global input.
+      return operation.delivery_mode === 'foreground'
+        ? result({ text: 'Foreground HWND 0x20632 differs from target', action: { effect: 4, route: 2 } })
+        : result({ action: { effect: 0, route: 0 } })
+    })
+    try {
+      await expect(driver.elementClick({ pid: 9, window: '10', token: 'sdk:1' }, 'left', 1, new AbortController().signal)).resolves.toBeUndefined()
+      expect(native.call).toHaveBeenCalledOnce()
+      expect(JSON.parse(String(native.call.mock.calls[0]?.[1]))).toMatchObject({ pid: 9, element_token: 'sdk:1', delivery_mode: 'background' })
+    } finally { await driver.close() }
+  })
+  it('preserves a Windows double-click as one count=2 request instead of replaying semantic clicks', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    try {
+      await driver.elementClick({ pid: 9, window: '10', token: 'sdk:list-item' }, 'left', 2, new AbortController().signal)
+      expect(native.call).toHaveBeenCalledOnce()
+      expect(JSON.parse(String(native.call.mock.calls[0]?.[1]))).toEqual({ pid: 9, element_token: 'sdk:list-item', delivery_mode: 'background', button: 'left', count: 2 })
+    } finally { await driver.close() }
+  })
+  it.each([
+    [result({ isError: true, errorCode: 'background_unavailable', text: 'No supported background route' }), 'background_unavailable'],
+    [result({ action: { effect: 4, route: 0 } }), 'INPUT_REFUSED'],
+    [result({ action: { effect: 1, route: 1 } }), 'INPUT_UNCONFIRMED']
+  ] as const)('does not switch or replay a refused/partial Windows click (%j)', async (outcome, code) => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    native.call.mockResolvedValueOnce(outcome)
+    try {
+      await expect(driver.elementClick({ pid: 9, window: '10', token: 'sdk:1' }, 'left', 2, new AbortController().signal)).rejects.toMatchObject({ code })
+      expect(native.call).toHaveBeenCalledOnce()
+      expect(JSON.parse(String(native.call.mock.calls[0]?.[1])).delivery_mode).toBe('background')
+    } finally { await driver.close() }
+  })
+  it('does not dispatch a Windows semantic click after cancellation during session attachment', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const driver = new NativeInput()
+    const controller = new AbortController()
+    native.start.mockImplementationOnce(async () => { controller.abort(); return { active: true, revived: false } })
+    try {
+      await expect(driver.elementClick({ pid: 9, window: '10', token: 'sdk:1' }, 'left', 1, controller.signal)).rejects.toThrow()
+      expect(native.call).not.toHaveBeenCalled()
+    } finally { await driver.close() }
+  })
   it('uses typed discovery and bounded tree-only observation without losing the native window identifier', async () => {
     const driver = new NativeInput()
     const signal = new AbortController().signal
@@ -35,7 +85,7 @@ describe('native desktop adapter lifecycle and refusal', () => {
     await driver.elementKey(target, 'MOD+A', signal)
     expect(native.call.mock.calls.map(([name]) => name)).toEqual(['click', 'set_value', 'hotkey'])
     for (const [, args] of native.call.mock.calls) expect(JSON.parse(String(args))).toMatchObject({ pid: 9, element_token: 'sdk-snapshot:4' })
-    expect(JSON.parse(String(native.call.mock.calls[0]?.[1]))).toMatchObject({ delivery_mode: 'foreground' })
+    expect(JSON.parse(String(native.call.mock.calls[0]?.[1]))).toMatchObject({ delivery_mode: process.platform === 'win32' ? 'background' : 'foreground' })
     native.start.mockResolvedValueOnce({ active: true, revived: true })
     await expect(driver.elementText(target, 'no replay', false, signal)).rejects.toMatchObject({ code: 'STALE_SNAPSHOT' })
     expect(native.call).toHaveBeenCalledTimes(3)

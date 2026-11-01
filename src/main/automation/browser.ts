@@ -1,4 +1,5 @@
 import { BrowserWindow, session } from 'electron'
+import { PRODUCT_NAME } from '../../shared/brand'
 import { randomUUID } from 'node:crypto'
 import { automationUrl, AutomationError, type AutomationOperation, type AutomationResult, type AutomationStep } from '../../shared/automation'
 import { parseAutomationKey } from './native-input'
@@ -20,10 +21,10 @@ export class BrowserAutomation {
       browserSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
       browserSession.setPermissionCheckHandler(() => false)
       // Downloads must not write files without a deliberate native save choice.
-      browserSession.on('will-download', (_event, item) => item.setSaveDialogOptions({ title: 'HQHarness Browser Use' }))
+      browserSession.on('will-download', (_event, item) => item.setSaveDialogOptions({ title: `${PRODUCT_NAME} Browser Use` }))
       this.ready = true
     }
-    const window = new BrowserWindow({ width: 1100, height: 760, title: 'HQHarness Browser Use', autoHideMenuBar: true, webPreferences: { session: browserSession, contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false } })
+    const window = new BrowserWindow({ width: 1100, height: 760, title: `${PRODUCT_NAME} Browser Use`, autoHideMenuBar: true, webPreferences: { session: browserSession, contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false } })
     const tab: BrowserTab = { id: randomUUID(), owner, window, hasScreenshot: false, refs: new Map(), nodes: [] }
     this.tabs.set(tab.id, tab)
     window.webContents.setWindowOpenHandler(({ url }) => {

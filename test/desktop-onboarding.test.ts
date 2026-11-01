@@ -205,7 +205,7 @@ function createCtx(overrides: Partial<CtxHarness> = {}): { ctx: CtxHarness; regi
   return { ctx, registrations }
 }
 
-describe('HQHarness onboarding introduction', () => {
+describe('Huaqing Desktop onboarding introduction', () => {
   it('shows a single notice modal that links straight to the models settings', () => {
     const source = readFileSync(
       path.join(projectRoot, 'packages', 'dsh-desktop-onboarding', 'client.js'),
@@ -299,13 +299,13 @@ describe('HQHarness onboarding introduction', () => {
     const zh = dictsRecord.zh ?? {}
     const en = dictsRecord.en ?? {}
     expect(Object.keys(zh).sort()).toEqual(Object.keys(en).sort())
-    expect(zh.step0Title).toBe('欢迎使用 HQHarness')
-    expect(en.step0Title).toBe('Welcome to HQHarness')
-    expect(zh.brandName).toBe('HQHarness')
-    expect(en.brandName).toBe('HQHarness')
+    expect(zh.step0Title).toBe('欢迎使用 Huaqing Desktop')
+    expect(en.step0Title).toBe('Welcome to Huaqing Desktop')
+    expect(zh.brandName).toBe('Huaqing Desktop')
+    expect(en.brandName).toBe('Huaqing Desktop')
     expect(zh.declarationBody).not.toContain('DeepSeek Harness')
     expect(en.declarationBody).not.toContain('DeepSeek Harness')
-    expect(zh.configureModel).toBe('开始使用 HQHarness')
+    expect(zh.configureModel).toBe('开始使用 Huaqing Desktop')
     expect(zh.desktopIntroBody).toContain('Huaqing Switch')
     expect(en.desktopIntroBody).toContain('Huaqing Switch')
     expect(en.configureModel).toBeTruthy()

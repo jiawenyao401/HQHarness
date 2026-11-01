@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const brand = JSON.parse(await readFile(path.join(root, 'brand.config.json'), 'utf8'))
 const packages = ['dsh-client-web', 'dsh-client-ui-primitives', 'dsh-client-store', 'dsh-client-ui-slots', 'dsh-client-ui-dockkit', 'dsh-web-frontend']
 const versions = {}
 for (const name of packages) {
@@ -22,7 +23,7 @@ await build({
   build:{ outDir:output, emptyOutDir:true, target:'es2022', sourcemap:false, license:{ fileName:'THIRD_PARTY_LICENSES.txt' } }
 })
 const manifest = {
-  name:'HQHarness', short_name:'HQHarness', description:'Local-first AI agent workspace',
+  name:brand.productName, short_name:brand.productName, description:'Local-first AI agent workspace',
   theme_color:'#ffffff', background_color:'#ffffff', display:'standalone', start_url:'.',
   icons:[{ src:'/hqzyai-logomark.svg', sizes:'any', type:'image/svg+xml' }]
 }

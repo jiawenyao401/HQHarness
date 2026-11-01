@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const projectRoot = path.resolve(import.meta.dirname, '..')
 
-describe('HQHarness frontend branding', () => {
+describe('Huaqing Desktop frontend branding', () => {
 
   it('keeps the product name in idle, session, panel and cleanup document titles', async () => {
     const client = await readFile(
@@ -19,10 +19,10 @@ describe('HQHarness frontend branding', () => {
     if (typeof productTitle !== 'string') throw new Error('Expected a string product title')
 
     for (const [sessionTitle, activePanelId, expected] of [
-      [undefined, null, 'HQHarness'],
-      ['Project notes', null, 'Project notes — HQHarness'],
-      ['项目笔记', null, '项目笔记 — HQHarness'],
-      ['Project notes', 'settings', 'HQHarness']
+      [undefined, null, 'Huaqing Desktop'],
+      ['Project notes', null, 'Project notes — Huaqing Desktop'],
+      ['项目笔记', null, '项目笔记 — Huaqing Desktop'],
+      ['Project notes', 'settings', 'Huaqing Desktop']
     ] as const) {
       const document = { title: 'Initial HTML title' }
       let dispose: (() => void) | undefined
@@ -41,7 +41,7 @@ describe('HQHarness frontend branding', () => {
       })
       expect(document.title).toBe(expected)
       dispose?.()
-      expect(document.title).toBe('HQHarness')
+      expect(document.title).toBe('Huaqing Desktop')
     }
   })
 

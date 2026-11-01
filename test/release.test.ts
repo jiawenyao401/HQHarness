@@ -271,7 +271,7 @@ describe('GitHub release contract', () => {
     }
     expect(packageJson.dependencies['electron-updater']).toBeTruthy()
     expect(packageJson.build.appId).toBe('app.hqharness.desktop')
-    expect(packageJson.build.productName).toBe('HQHarness')
+    expect(packageJson.build.productName).toBe('Huaqing Desktop')
     for (const serviceUrl of [brand.updateBaseUrl, brand.desktopServiceUrl, brand.supportUrl]) {
       if (serviceUrl !== null) {
         expect(new URL(serviceUrl).protocol).toBe('https:')
@@ -319,7 +319,7 @@ describe('GitHub release contract', () => {
       expect(packageJson.scripts[script ?? '']).toContain('--publish never')
     }
     expect(developmentConfig.appId).toBe('app.hqharness.desktop.dev')
-    expect(developmentConfig.productName).toBe('HQHarness Dev')
+    expect(developmentConfig.productName).toBe('Huaqing Desktop Dev')
     expect(developmentConfig.directories.output).toBe('dist-dev')
     expect(developmentConfig.extraMetadata.name).toBe('hqharness-dev')
     expect(developmentConfig.extraMetadata.dshDesktopChannel).toBe('development')

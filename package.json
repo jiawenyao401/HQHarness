@@ -1,7 +1,7 @@
 {
   "name": "hqharness",
-  "version": "0.1.10",
-  "description": "HQHarness — a local-first, cross-platform AI agent workspace powered by DeepSeek Harness.",
+  "version": "0.1.11",
+  "description": "Huaqing Desktop — a local-first, cross-platform AI agent workspace powered by DeepSeek Harness.",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
@@ -353,7 +353,7 @@
   },
   "build": {
     "appId": "app.hqharness.desktop",
-    "productName": "HQHarness",
+    "productName": "Huaqing Desktop",
     "asar": true,
     "asarUnpack": [
       "**/*.{node,dylib,dll,so,exe}",
@@ -537,9 +537,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
-    "afterPack": "scripts/after-pack.cjs"
+    "afterPack": "scripts/after-pack.cjs",
+    "executableName": "HQHarness"
   },
-  "productName": "HQHarness",
+  "productName": "Huaqing Desktop",
   "engines": {
     "node": ">=24.0.0"
   }

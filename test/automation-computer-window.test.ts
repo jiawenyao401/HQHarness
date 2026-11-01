@@ -8,6 +8,7 @@ vi.mock('electron', () => ({
   nativeImage: { createFromBuffer: () => ({ isEmpty: () => false, getSize: () => ({ width: 1280, height: 720 }), resize() { return this }, toPNG: () => Buffer.from('png') }) }
 }))
 import { ComputerAutomation } from '../src/main/automation/computer'
+import { AutomationError } from '../src/shared/automation'
 const signal = () => new AbortController().signal
 const element = (label: string, extras: Partial<WindowElement> = {}): WindowElement => ({ elementIndex: 1n, elementToken: 'sdk:1', role: 'Button', depth: 1, label, enabled: true, actions: ['invoke'], ...extras })
 const state = (elements: WindowElement[]): WindowStateOutput => ({ pid: 9, windowId: 10n, snapshotId: 'sdk', elements, elementsComplete: true, images: [] })
@@ -19,6 +20,18 @@ beforeEach(() => {
   native.close.mockResolvedValue(undefined)
 })
 describe('exact native window automation', () => {
+  it('preserves native screen frames and the exact window bounds instead of implying window-local coordinates', async () => {
+    const computer = new ComputerAutomation()
+    const bounds = { x: 0, y: 700, width: 600, height: 732 }
+    const frame = { x: 100, y: 1211, w: 140, h: 30 }
+    native.observeWindow.mockResolvedValue({ ...state([element('WPS Office 最近添加', { role: 'ListItem', frame })]), windowBounds: bounds })
+    const observation = await computer.execute('a', { action: 'observe', pid: 9, window: '10' }, signal())
+    expect(observation).toMatchObject({ window_bounds: bounds, element_frame_space: 'native-screen', elements: [{ name: 'WPS Office 最近添加', frame, ref: expect.any(String) }] })
+    // A screen y larger than the window's height is not evidence that a UIA
+    // element is off-screen. The native provider owns visibility and delivery.
+    await computer.execute('a', { action: 'click', snapshot: String(observation.snapshot), target: { name: 'WPS Office 最近添加' } }, signal())
+    expect(native.elementClick).toHaveBeenCalledOnce()
+  })
   it('discovers exact windows and observes a bounded tree without a screenshot by default', async () => {
     const computer = new ComputerAutomation()
     const windows = await computer.execute('owner', { action: 'windows' }, signal())
@@ -38,6 +51,16 @@ describe('exact native window automation', () => {
     expect(next.inputSent).toBe('click')
     expect(native.observeWindow).toHaveBeenCalledTimes(2)
     await expect(computer.execute('a', { action: 'click', snapshot: String(first.snapshot), target: { name: '保存' } }, signal())).rejects.toMatchObject({ code: 'STALE_SNAPSHOT' })
+  })
+  it('consumes the exact snapshot after a post-action foreground refusal without replaying a double-click', async () => {
+    const computer = new ComputerAutomation()
+    const first = await computer.execute('a', { action: 'observe', pid: 9, window: '10' }, signal())
+    native.elementClick.mockRejectedValueOnce(new AutomationError('INPUT_REFUSED', 'foreground_unavailable: exact target or verified post-action window was not foreground'))
+    const click = { action: 'click', pid: 9, window: '10', snapshot: String(first.snapshot), target: { name: '保存' }, clicks: 2 }
+    await expect(computer.execute('a', click, signal())).rejects.toMatchObject({ code: 'INPUT_REFUSED' })
+    await expect(computer.execute('a', click, signal())).rejects.toMatchObject({ code: 'STALE_SNAPSHOT' })
+    expect(native.elementClick).toHaveBeenCalledOnce()
+    expect(native.elementClick).toHaveBeenCalledWith({ pid: 9, window: '10', token: 'sdk:1' }, undefined, 2, expect.any(AbortSignal))
   })
   it('returns complete attachment coordinates for an explicit window image while refusing window pixel input', async () => {
     const computer = new ComputerAutomation()

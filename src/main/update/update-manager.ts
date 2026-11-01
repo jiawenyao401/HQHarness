@@ -167,7 +167,7 @@ export async function checkForUpdates(manual = false): Promise<UpdateStatus> {
       return
     }
     if (!isVersion(policy.version) || policy.feedUrl !== archiveFeedUrl(policy.version)) {
-      throw new Error('Update policy does not match the configured HQHarness channel')
+      throw new Error(`Update policy does not match the configured ${PRODUCT_NAME} channel`)
     }
     selectedUpdateVersion = policy.version
     selectedFeedUrl = policy.feedUrl

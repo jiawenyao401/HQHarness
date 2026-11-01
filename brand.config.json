@@ -1,6 +1,6 @@
 {
-  "productName": "HQHarness",
-  "developmentProductName": "HQHarness Dev",
+  "productName": "Huaqing Desktop",
+  "developmentProductName": "Huaqing Desktop Dev",
   "packageName": "hqharness",
   "appId": "app.hqharness.desktop",
   "developmentAppId": "app.hqharness.desktop.dev",

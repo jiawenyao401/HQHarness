@@ -13,14 +13,14 @@ export function managedProfile(lease, baseURL, bridgeToken) {
     compat: { supportsStore: false, supportsDeveloperRole: false }
   }
   const piProvider = createProvider({
-    id: PROVIDER, name: 'HQHarness · AgentOS', baseUrl: baseURL, models: [descriptor], api: openAICompletionsApi(),
-    auth: { apiKey: { name: 'HQHarness local bridge', resolve: async ({ credential }) => ({ auth: { apiKey: credential?.key }, source: 'HQHarness local bridge' }) } }
+    id: PROVIDER, name: 'Huaqing Desktop · AgentOS', baseUrl: baseURL, models: [descriptor], api: openAICompletionsApi(),
+    auth: { apiKey: { name: 'Huaqing Desktop local bridge', resolve: async ({ credential }) => ({ auth: { apiKey: credential?.key }, source: 'Huaqing Desktop local bridge' }) } }
   })
   return {
-    provider: PROVIDER, displayName: 'HQHarness · AgentOS', api: 'openai-completions', baseURL, bridgeToken,
+    provider: PROVIDER, displayName: 'Huaqing Desktop · AgentOS', api: 'openai-completions', baseURL, bridgeToken,
     streamIdleTimeoutMs: 300_000, maxRequestImageBytes: 20 * 1024 * 1024,
     requestImagePixelBudget: 4_194_304, requestImageMaxBytes: 1_048_576,
-    retryPolicy: resolveRetryPolicy({ mode: 'normal', maxRetries: 0 }, 'HQHarness team model'),
+    retryPolicy: resolveRetryPolicy({ mode: 'normal', maxRetries: 0 }, 'Huaqing Desktop team model'),
     configuredMaxTokens: new Map(), modelErrors: new Map(), piProvider
   }
 }

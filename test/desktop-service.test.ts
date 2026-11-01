@@ -17,7 +17,7 @@ function queued(service: DesktopService, dir: string) {
   return service.pending().map(name => JSON.parse(readFileSync(join(dir, 'state', 'outbox', name), 'utf8')))
 }
 describe('desktop service', () => {
-  it('keeps diagnostic reports local and blocks updates when HQHarness services are unconfigured', async () => {
+  it('keeps diagnostic reports local and blocks updates when Huaqing Desktop services are unconfigured', async () => {
     const { options, request } = fixture()
     const service = new DesktopService({
       stateDir: options.stateDir,
@@ -30,7 +30,7 @@ describe('desktop service', () => {
     })
     service.capture('startup-failure', 'local diagnostic')
     await service.flush()
-    await expect(service.checkUpdate()).rejects.toThrow('HQHarness update service is not configured.')
+    await expect(service.checkUpdate()).rejects.toThrow('Huaqing Desktop update service is not configured.')
     expect(service.pending()).toHaveLength(1)
     expect(request).not.toHaveBeenCalled()
     expect(options.confirmUpload).not.toHaveBeenCalled()

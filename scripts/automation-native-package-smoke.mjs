@@ -3,7 +3,7 @@ import { electronExecutable } from './electron-node-loader.mjs'
 import path from 'node:path'
 
 const source = `
-const { readFileSync } = require('node:fs')
+const { readFileSync, existsSync } = require('node:fs')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const assert = require('node:assert/strict')
@@ -22,6 +22,13 @@ async function qualifyOwnedTools(appRoot) {
     const input = JSON.parse(body)
     calls.push(input)
     res.setHeader('content-type', 'application/json')
+    if (input.owner === 'session-packaged-real-ptc') {
+      if (input.operation.action === 'click') {
+        res.writeHead(400)
+        res.end(JSON.stringify({ code: 'INPUT_REFUSED', error: 'Owned fixture foreground mismatch; no desktop input was dispatched' }))
+      } else res.end(JSON.stringify({ snapshot: 'routing-frame', pid: 1, window: '2', elements: [{ ref: 'routing-ref', role: 'Button', name: 'Fixture' }] }))
+      return
+    }
     res.end(JSON.stringify(input.operation.action === 'observe' ? { snapshot: 'test-frame', coordinates: { width: 1000, height: 600 }, image: { png: 'AA==' } } : { available: true }))
   })
   let ctx
@@ -32,7 +39,11 @@ async function qualifyOwnedTools(appRoot) {
     process.env.DSH_HOME = home
     const config = join(home, 'cordis.yml')
     await writeFile(config, JSON.stringify([
-      ...['dsh-system-prompt', 'dsh-tools', 'dsh-session-projection', 'dsh-session', 'dsh-agent', 'dsh-llm', 'dsh-agent-loop', 'dsh-token-meter'].map(name => ({ id: name, name: moduleUrl('@deepseek-ai/' + name) })),
+      { id: 'prompt', name: moduleUrl('@deepseek-ai/dsh-system-prompt') },
+      { id: 'tools', name: moduleUrl('@deepseek-ai/dsh-tools'), config: { mode: 'both' } },
+      ...['dsh-session-projection', 'dsh-session', 'dsh-agent', 'dsh-llm', 'dsh-agent-loop', 'dsh-token-meter', 'dsh-fs-local', 'dsh-subprocess-local', 'dsh-sandbox-local'].map(name => ({ id: name, name: moduleUrl('@deepseek-ai/' + name) })),
+      { id: 'sandbox-policy', name: moduleUrl('@deepseek-ai/dsh-sandbox-policy'), config: { mode: 'workspace-write', workspaceRoot: home } },
+      { id: 'ptc-runtime', name: moduleUrl('@deepseek-ai/dsh-ptc-runtime-node') },
       { id: 'history-query', name: moduleUrl('@deepseek-ai/dsh-session-query-sqlite'), config: { path: ':memory:', openAt: 'never' } },
       { id: 'automation', name: pathToFileURL(join(appRoot, 'node_modules/hqharness-automation/index.js')).href }
     ]))
@@ -117,6 +128,49 @@ async function qualifyOwnedTools(appRoot) {
     assert.equal(directCalls, 2)
     assert.equal(calls.length, 4, 'Routing qualification must not dispatch native input')
     console.log('PACKAGED_TOOL_ROUTING_PASS: exact packaged guard, real Agent events, web/file preference, explicit override, next-turn reset and Agent isolation')
+    // Load the real Node process provider from this exact appRoot too. A fixture
+    // interpreter that only forwards tools cannot expose raw Node I/O bypasses.
+    assert.equal(ctx.ptcRuntime.language, 'typescript')
+    assert.equal(ctx.ptcRuntime.isolation, 'process')
+    const { agent: ptcAgent } = await ctx.agents.create({ sessionId: 'session-packaged-real-ptc', meta: { cwd: home }, agentOptions: { provider: 'test', model: 'test' } })
+    const claimPtc = (turn, text) => agentEvents(ctx, ptcAgent).emit('agent/inbox/claimed', { message: createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }), turn })
+    let ptcCallId = 0
+    const ptcCall = (name, args) => ctx.tools.execute({ callId: 'packaged-ptc-' + ++ptcCallId, name, arguments: args, agent: ptcAgent, signal: new AbortController().signal })
+    const program = code => ptcCall('run_code', { code, description: 'Exact packaged Node PTC routing qualification; owned fixture only' })
+    const marker = join(home, 'ptc-owned-marker.txt')
+    const rawWrite = value => 'const fs = await import("node:fs/promises"); await fs.writeFile(' + JSON.stringify(marker) + ', ' + JSON.stringify(value) + '); return "fixture written"'
+    claimPtc(1, 'Inspect the owned local fixture through the application.')
+    const initialRaw = await program(rawWrite('unexpected'))
+    assert.equal(initialRaw.isError, true)
+    assert(initialRaw.content.some(block => /HQ_ROUTING_/.test(block.text ?? '')))
+    assert.equal(existsSync(marker), false)
+    const guiCode = 'return await tools.computer_use({"action":"observe","pid":1,"window":"2"});'
+    const gui = await program(guiCode)
+    assert.equal(gui.isError, false, JSON.stringify(gui.content))
+    assert.equal(gui.value.result.snapshot, 'routing-frame')
+    assert.equal(gui.value.sandbox.mode, 'workspace-write')
+    assert.equal(gui.value.sandbox.denied, false)
+    const refused = await ptcCall('computer_use', { action: 'click', pid: 1, window: '2', snapshot: 'routing-frame', target: { name: 'Fixture', role: 'Button' } })
+    assert.equal(refused.isError, true)
+    assert.equal(refused.error.info.code, 'INPUT_REFUSED')
+    const afterRefusal = await program(rawWrite('unexpected'))
+    assert.equal(afterRefusal.isError, true)
+    assert(afterRefusal.content.some(block => /HQ_ROUTING_/.test(block.text ?? '')))
+    assert.equal(existsSync(marker), false, 'Refused GUI input must not become a raw Node filesystem write')
+    const verified = await program(guiCode)
+    assert.equal(verified.isError, false, JSON.stringify(verified.content))
+    claimPtc(1, '工具模式：直接工具')
+    assert.equal((await program(rawWrite('unexpected'))).isError, true, 'Same-turn steering must not bypass an unconfirmed input')
+    assert.equal(existsSync(marker), false)
+    claimPtc(2, '工具模式：直接工具')
+    const direct = await program(rawWrite('approved fixture'))
+    assert.equal(direct.isError, false, JSON.stringify(direct.content))
+    assert.equal(readFileSync(marker, 'utf8'), 'approved fixture')
+    claimPtc(3, 'Inspect another local fixture through the application.')
+    assert.equal((await program(rawWrite('unexpected'))).isError, true)
+    assert.equal(readFileSync(marker, 'utf8'), 'approved fixture')
+    assert.equal(calls.length, 7, 'Only three owned bridge fixtures may be called; no real desktop input')
+    console.log('PACKAGED_REAL_PTC_ROUTING_PASS: real packaged Node process and sandbox, canonical GUI binding, refused-input opaque-I/O denial, explicit new-turn authorization and default reset')
   } finally {
     await ctx?.fiber.dispose()
     server.closeAllConnections()

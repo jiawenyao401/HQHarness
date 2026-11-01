@@ -43,25 +43,25 @@ window.__ModuleLoader__.load({
     // ---------- locale dictionaries ----------
 
     const en = {
-      brandName: 'HQHarness',
-      step0Title: 'Welcome to HQHarness',
-      declarationBody: 'HQHarness is a local-first AI workspace built on the open-source Harness runtime. Connect through Huaqing Switch to start conversations, work with your files, and use compatible plugins.\n\nYour workspace files and app settings stay on this device. When you use a model or a network-enabled plugin, it may send data to its service provider according to your configuration.',
+      brandName: 'Huaqing Desktop',
+      step0Title: 'Welcome to Huaqing Desktop',
+      declarationBody: 'Huaqing Desktop is a local-first AI workspace built on the open-source Harness runtime. Connect through Huaqing Switch to start conversations, work with your files, and use compatible plugins.\n\nYour workspace files and app settings stay on this device. When you use a model or a network-enabled plugin, it may send data to its service provider according to your configuration.',
       desktopIntroTitle: 'Before you begin',
-      desktopIntroBody: 'Start Huaqing Switch and select a default connection there. HQHarness connects automatically; model configuration is managed in Huaqing Switch.',
-      desktopIntroFeedback: 'You can review the bundled Harness version and check update availability from About HQHarness.',
-      configureModel: 'Start using HQHarness',
+      desktopIntroBody: 'Start Huaqing Switch and select a default connection there. Huaqing Desktop connects automatically; model configuration is managed in Huaqing Switch.',
+      desktopIntroFeedback: 'You can review the bundled Harness version and check update availability from About Huaqing Desktop.',
+      configureModel: 'Start using Huaqing Desktop',
       later: 'Maybe later',
       saveFailed: 'Could not save your acknowledgment. Please try again.'
     }
 
     const zh = {
-      brandName: 'HQHarness',
-      step0Title: '欢迎使用 HQHarness',
-      declarationBody: 'HQHarness 是基于开源 Harness 运行时构建的本地优先 AI 工作空间。连接 Huaqing Switch 后，即可开始对话、处理本地文件并使用兼容插件。\n\n工作区文件和应用设置保存在本机。使用模型或联网插件时，它们可能根据你的配置将数据发送给对应服务提供方。',
+      brandName: 'Huaqing Desktop',
+      step0Title: '欢迎使用 Huaqing Desktop',
+      declarationBody: 'Huaqing Desktop 是基于开源 Harness 运行时构建的本地优先 AI 工作空间。连接 Huaqing Switch 后，即可开始对话、处理本地文件并使用兼容插件。\n\n工作区文件和应用设置保存在本机。使用模型或联网插件时，它们可能根据你的配置将数据发送给对应服务提供方。',
       desktopIntroTitle: '开始之前',
-      desktopIntroBody: '启动 Huaqing Switch 并在其中设置默认连接，HQHarness 会自动连接；模型配置统一在 Huaqing Switch 中管理。',
-      desktopIntroFeedback: '可在「关于 HQHarness」中查看内置 Harness 版本和更新服务状态。',
-      configureModel: '开始使用 HQHarness',
+      desktopIntroBody: '启动 Huaqing Switch 并在其中设置默认连接，Huaqing Desktop 会自动连接；模型配置统一在 Huaqing Switch 中管理。',
+      desktopIntroFeedback: '可在「关于 Huaqing Desktop」中查看内置 Harness 版本和更新服务状态。',
+      configureModel: '开始使用 Huaqing Desktop',
       later: '稍后再说',
       saveFailed: '未能保存确认，请重试。'
     }
@@ -77,8 +77,8 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // HQHarness owns this introduction. Support links stay absent until a
-    // real HQHarness destination is configured by the distribution.
+    // Huaqing Desktop owns this introduction. Support links stay absent until a
+    // real Huaqing Desktop destination is configured by the distribution.
     function NoticeBody({ t }) {
       const paragraphs = t('declarationBody').split('\n\n')
       return React.createElement(

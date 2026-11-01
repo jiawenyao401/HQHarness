@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '../../shared/brand'
 import { createServer, type Server } from 'node:http'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { dialog, globalShortcut, ipcMain, shell, systemPreferences, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
@@ -59,7 +60,7 @@ export class DesktopAutomationService {
     const zh = this.locale() === 'zh'
     const name = capability === 'browser' ? 'Browser Use' : 'Computer Use'
     const options = {
-      type: 'question' as const, title: `HQHarness · ${name}`,
+      type: 'question' as const, title: `${PRODUCT_NAME} · ${name}`,
       message: zh ? `允许当前会话使用 ${name}？` : `Allow this session to use ${name}?`,
       detail: (capability === 'browser'
         ? zh ? '模型可以访问、观察和操作独立浏览器中的网页。网页内容和截图会交给当前模型；不会读取系统浏览器的数据。' : 'The current model can visit, observe and operate an isolated browser. Page content and screenshots are sent to that model. System browser data is not imported.'
@@ -69,7 +70,7 @@ export class DesktopAutomationService {
     }
     const parent = this.window()
     // Unparented macOS dialogs cannot be aborted and would block stop/timeout.
-    if (!parent || parent.isDestroyed()) throw new AutomationError('CONSENT_UNAVAILABLE', 'The HQHarness window is unavailable for authorization. Open HQHarness and retry the tool.')
+    if (!parent || parent.isDestroyed()) throw new AutomationError('CONSENT_UNAVAILABLE', `The ${PRODUCT_NAME} window is unavailable for authorization. Open ${PRODUCT_NAME} and retry the tool.`)
     signal.throwIfAborted()
     if (parent.isMinimized()) parent.restore()
     if (!parent.isVisible()) parent.show()
@@ -78,7 +79,7 @@ export class DesktopAutomationService {
     try {
       const result = await dialog.showMessageBox(parent, options)
       signal.throwIfAborted()
-      if (parent.isDestroyed()) throw new AutomationError('CONSENT_UNAVAILABLE', 'The authorization window closed. Open HQHarness and retry the tool.')
+      if (parent.isDestroyed()) throw new AutomationError('CONSENT_UNAVAILABLE', `The authorization window closed. Open ${PRODUCT_NAME} and retry the tool.`)
       return result.response === 1
     } finally {
       if (!parent.isDestroyed()) parent.flashFrame(false)
@@ -134,7 +135,7 @@ export class DesktopAutomationService {
           try { return await engine.execute(input.owner, input.operation, controller.signal) }
           finally { executed = performance.now() }
         }
-        deadline(this.timeouts.authorizationMs, new AutomationError('CONSENT_TIMEOUT', 'Automation authorization timed out while waiting for the HQHarness dialog or another operation. Bring HQHarness to the foreground and retry the tool to authorize; no action was performed.'))
+        deadline(this.timeouts.authorizationMs, new AutomationError('CONSENT_TIMEOUT', `Automation authorization timed out while waiting for the ${PRODUCT_NAME} dialog or another operation. Bring ${PRODUCT_NAME} to the foreground and retry the tool to authorize; no action was performed.`))
         const result = input.operation.action === 'status' ? await execute()
           : await this.gate.run(input.capability, input.owner, controller.signal, () => this.consent(input.capability, controller.signal), execute)
         controller.signal.throwIfAborted()

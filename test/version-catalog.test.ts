@@ -14,7 +14,7 @@ describe('version-catalog constants', () => {
   it('leaves the HQHarness update feed and index unconfigured by default', () => {
     expect(STABLE_FEED_URL).toBeNull()
     expect(VERSION_INDEX_URL).toBeNull()
-    expect(() => archiveFeedUrl('1.2.3')).toThrow('HQHarness update service is not configured.')
+    expect(() => archiveFeedUrl('1.2.3')).toThrow('Huaqing Desktop update service is not configured.')
   })
 
   it('builds a per-version archive feed url with a trailing slash', () => {

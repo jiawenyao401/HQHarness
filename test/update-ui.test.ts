@@ -78,21 +78,21 @@ describe('accepting an update is what starts the download', () => {
       manual: false
     }
     expect(updateMessage(available, 'zh')).toBe('发现新版本 0.4.4，是否更新？')
-    expect(updateMessage(available, 'en')).toBe('HQHarness 0.4.4 is available. Update now?')
+    expect(updateMessage(available, 'en')).toBe('Huaqing Desktop 0.4.4 is available. Update now?')
   })
 })
 
 describe('unconfigured update service copy', () => {
-  it('explains the missing HQHarness service in both locales', () => {
+  it('explains the missing Huaqing Desktop service in both locales', () => {
     const unsupported: UpdateStatus = {
       phase: 'unsupported',
       currentVersion: '1.0.0',
       manual: true,
-      message: 'HQHarness update service is not configured.'
+      message: 'Huaqing Desktop update service is not configured.'
     }
-    expect(updateHeadline(unsupported, 'zh').description).toBe('HQHarness 更新服务尚未配置。')
+    expect(updateHeadline(unsupported, 'zh').description).toBe('Huaqing Desktop 更新服务尚未配置。')
     expect(updateHeadline(unsupported, 'en').description).toBe(unsupported.message)
-    expect(updateMessage(unsupported, 'zh')).toBe('HQHarness 更新服务尚未配置。')
+    expect(updateMessage(unsupported, 'zh')).toBe('Huaqing Desktop 更新服务尚未配置。')
     expect(shouldShowUpdate(unsupported)).toBe(true)
   })
 
@@ -101,10 +101,10 @@ describe('unconfigured update service copy', () => {
       phase: 'unsupported',
       currentVersion: '1.0.0',
       manual: true,
-      message: 'HQHarness update signing identity is missing or does not match the configured channel.'
+      message: 'Huaqing Desktop update signing identity is missing or does not match the configured channel.'
     }
-    expect(updateHeadline(unsupported, 'zh').description).toBe('HQHarness 更新签名身份缺失或与配置的更新渠道不符。')
-    expect(updateMessage(unsupported, 'zh')).toBe('HQHarness 更新签名身份缺失或与配置的更新渠道不符。')
+    expect(updateHeadline(unsupported, 'zh').description).toBe('Huaqing Desktop 更新签名身份缺失或与配置的更新渠道不符。')
+    expect(updateMessage(unsupported, 'zh')).toBe('Huaqing Desktop 更新签名身份缺失或与配置的更新渠道不符。')
     expect(updateHeadline(unsupported, 'en').description).toBe(unsupported.message)
     expect(updateMessage(unsupported, 'en')).toBe(unsupported.message)
   })

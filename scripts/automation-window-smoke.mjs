@@ -23,10 +23,17 @@ const powershell = `
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class HQNativeForeground {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+}
+'@
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form = New-Object System.Windows.Forms.Form
 $form.Text = $env:HQ_WINDOW_FIXTURE_TITLE
-$form.Width = 540; $form.Height = 240
+$form.Width = 540; $form.Height = 300
 $form.StartPosition = 'CenterScreen'
 $query = New-Object System.Windows.Forms.TextBox
 $query.AccessibleName = 'Query'; $query.Name = 'Query'
@@ -37,8 +44,37 @@ $search.Left = 20; $search.Top = 80; $search.Width = 100
 $done = New-Object System.Windows.Forms.Button
 $done.Text = 'Done'; $done.AccessibleName = 'Done'
 $done.Left = 140; $done.Top = 80; $done.Width = 100; $done.Visible = $false
+$background = New-Object System.Windows.Forms.Button
+$background.Text = 'Background'; $background.AccessibleName = 'Background'
+$background.Left = 260; $background.Top = 80; $background.Width = 110
+$list = New-Object System.Windows.Forms.ListView
+$list.AccessibleName = 'Items'; $list.Left = 20; $list.Top = 130
+$list.Width = 460; $list.Height = 90; $list.View = 'List'
+$list.Activation = 'TwoClick'
+$list.Items.Add('DoubleTarget') | Out-Null
+$keeper = New-Object System.Windows.Forms.Form
+$keeper.Text = $form.Text + ' Foreground keeper'
+$keeper.Width = 220; $keeper.Height = 100
+$keeper.StartPosition = 'Manual'
+$keeper.Left = 20; $keeper.Top = 20
 $script:clicks = 0
+$script:backgroundClicks = 0
+$script:doubleClicks = 0
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+$background.Add_Click({
+  $script:backgroundClicks++
+  $result = @{ pid = $PID; clicks = $script:backgroundClicks; foreground = [HQNativeForeground]::GetForegroundWindow().ToInt64().ToString() } | ConvertTo-Json -Compress
+  $destination = [System.IO.Path]::Combine($env:HQ_WINDOW_FIXTURE_DIRECTORY, 'background.json')
+  [System.IO.File]::WriteAllText($destination + '.tmp', $result, $utf8)
+  Move-Item -LiteralPath ($destination + '.tmp') -Destination $destination -Force
+})
+$list.Add_ItemActivate({
+  $script:doubleClicks++
+  $result = @{ pid = $PID; activations = $script:doubleClicks; selected = @($list.SelectedItems | ForEach-Object { $_.Text }) } | ConvertTo-Json -Compress
+  $destination = [System.IO.Path]::Combine($env:HQ_WINDOW_FIXTURE_DIRECTORY, 'double.json')
+  [System.IO.File]::WriteAllText($destination + '.tmp', $result, $utf8)
+  Move-Item -LiteralPath ($destination + '.tmp') -Destination $destination -Force
+})
 $search.Add_Click({
   $script:clicks++
   $result = @{ pid = $PID; title = $form.Text; clicks = $script:clicks; value = $query.Text } | ConvertTo-Json -Compress
@@ -47,12 +83,14 @@ $search.Add_Click({
   Move-Item -LiteralPath ($destination + '.tmp') -Destination $destination -Force
   $done.Visible = $true
 })
-$form.Controls.AddRange([System.Windows.Forms.Control[]]@($query, $search, $done))
+$form.Controls.AddRange([System.Windows.Forms.Control[]]@($query, $search, $done, $background, $list))
 $form.Add_Shown({
-  $ready = @{ pid = $PID; window = $form.Handle.ToInt64().ToString(); title = $form.Text } | ConvertTo-Json -Compress
+  $keeper.Show(); $keeper.Activate()
+  $ready = @{ pid = $PID; window = $form.Handle.ToInt64().ToString(); title = $form.Text; keeper = $keeper.Handle.ToInt64().ToString(); foreground = [HQNativeForeground]::GetForegroundWindow().ToInt64().ToString() } | ConvertTo-Json -Compress
   [System.IO.File]::WriteAllText([System.IO.Path]::Combine($env:HQ_WINDOW_FIXTURE_DIRECTORY, 'ready.json'), $ready, $utf8)
 })
 [System.Windows.Forms.Application]::Run($form)
+$keeper.Dispose()
 $form.Dispose()
 `
 const script = path.join(directory, 'fixture.ps1')

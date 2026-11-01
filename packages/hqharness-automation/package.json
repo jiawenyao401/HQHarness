@@ -1,6 +1,6 @@
 {
   "name": "hqharness-automation",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Built-in Browser Use and Computer Use plugins for HQHarness on macOS and Windows.",
   "private": true,
   "type": "module",

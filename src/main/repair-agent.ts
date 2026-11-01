@@ -479,7 +479,7 @@ ${context}
 0. 如果离线诊断点名了插件，这个名字来自加载器的归属信息或启动修复的解析结果，以它为准，不要根据堆栈另行猜测。
 ${playbooks}
 
-**以上都对不上时**：以日志为准自己推断，别硬往清单上靠。HQHarness 基于上游桌面宿主实现；可参考上游源码：https://github.com/dataelement/dsh-desktop，但 HQHarness 的品牌、数据目录和服务配置以本机日志与实际文件为准（\`src/main/\` 是主进程，\`build/*.html\` 是启动修复页和安全模式页）；取不到就直说，按日志继续。
+**以上都对不上时**：以日志为准自己推断，别硬往清单上靠。${PRODUCT_NAME} 基于上游桌面宿主实现；可参考上游源码：https://github.com/dataelement/dsh-desktop，但 ${PRODUCT_NAME} 的品牌、数据目录和服务配置以本机日志与实际文件为准（\`src/main/\` 是主进程，\`build/*.html\` 是启动修复页和安全模式页）；取不到就直说，按日志继续。
 
 ## 工作方式
 - 先读证据再下结论：结论必须引用日志原文或文件内容。
@@ -531,7 +531,7 @@ ${context}
 0. If the offline diagnosis names a plugin, that name comes from loader provenance or startup recovery; treat it as authoritative instead of re-deriving it from stack traces.
 ${playbooks}
 
-**When none of these match**: reason from the log instead of forcing a match. HQHarness is based on the upstream desktop host: https://github.com/dataelement/dsh-desktop. Use it as background; HQHarness branding, data directories and service configuration are determined by local logs and files (\`src/main/\` is the main process; \`build/*.html\` are the Startup Recovery and Safe Mode pages). Say so and carry on from the log if you cannot reach it.
+**When none of these match**: reason from the log instead of forcing a match. ${PRODUCT_NAME} is based on the upstream desktop host: https://github.com/dataelement/dsh-desktop. Use it as background; ${PRODUCT_NAME} branding, data directories and service configuration are determined by local logs and files (\`src/main/\` is the main process; \`build/*.html\` are the Startup Recovery and Safe Mode pages). Say so and carry on from the log if you cannot reach it.
 
 ## How to work
 - Read the evidence before concluding, and quote the log line or file content your conclusion rests on.

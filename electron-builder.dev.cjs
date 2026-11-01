@@ -1,16 +1,18 @@
 const packageJson = require('./package.json')
+const brand = require('./brand.config.json')
 
 module.exports = {
   ...packageJson.build,
-  appId: 'app.hqharness.desktop.dev',
-  productName: 'HQHarness Dev',
+  appId: brand.developmentAppId,
+  productName: brand.developmentProductName,
+  executableName: 'HQHarness Dev',
   directories: {
     ...packageJson.build.directories,
     output: 'dist-dev'
   },
   extraMetadata: {
     name: 'hqharness-dev',
-    productName: 'HQHarness Dev',
+    productName: brand.developmentProductName,
     dshDesktopChannel: 'development'
   },
   artifactName: 'hqharness-dev-${os}-${arch}.${ext}',

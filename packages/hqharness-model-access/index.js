@@ -13,7 +13,7 @@ export function apply(ctx) {
   // Safe Mode and standalone Harness can omit the desktop-owned bridge.
   if (!endpoint || !token) return
   const url = new URL(endpoint)
-  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.pathname !== '/' || !/^[0-9a-f]{64}$/.test(token)) throw new Error('Invalid HQHarness model bridge configuration')
+  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.pathname !== '/' || !/^[0-9a-f]{64}$/.test(token)) throw new Error('Invalid Huaqing Desktop model bridge configuration')
   let profiles = new Map()
   const adapter = new PiAiAdapter({
     profiles: () => profiles,
@@ -31,10 +31,10 @@ export function apply(ctx) {
     const controller = new AbortController()
     const sync = () => running ??= (async () => {
       const response = await fetch(`${url.origin}/managed-model`, { headers: { Authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) })
-      if (!response.ok) { await response.body?.cancel(); throw new Error('HQHarness model bridge unavailable') }
+      if (!response.ok) { await response.body?.cancel(); throw new Error('Huaqing Desktop model bridge unavailable') }
       const metadata = await response.json()
       const lease = metadata.lease
-      if (lease && (!['active', 'renewing'].includes(lease.status) || lease.model?.display_name !== 'DeepSeek-V41-Flash' || !Number.isSafeInteger(lease.model.context_window) || !Number.isSafeInteger(lease.model.max_output_tokens) || !Array.isArray(lease.model.input_modalities))) throw new Error('Invalid HQHarness model metadata')
+      if (lease && (!['active', 'renewing'].includes(lease.status) || lease.model?.display_name !== 'DeepSeek-V41-Flash' || !Number.isSafeInteger(lease.model.context_window) || !Number.isSafeInteger(lease.model.max_output_tokens) || !Array.isArray(lease.model.input_modalities))) throw new Error('Invalid Huaqing Desktop model metadata')
       if (disposed) return
       const next = JSON.stringify(lease?.model ?? null)
       if (fingerprint !== next) {
@@ -50,7 +50,7 @@ export function apply(ctx) {
       profiles = new Map()
       registration?.replace([])
       fingerprint = ''
-      if (!disposed && !warned) { ctx.logger.warn('HQHarness team model bridge is unavailable; access remains disabled'); warned = true }
+      if (!disposed && !warned) { ctx.logger.warn('Huaqing Desktop team model bridge is unavailable; access remains disabled'); warned = true }
     })
     void refresh()
     const timer = setInterval(() => { void refresh() }, 5000)
@@ -67,5 +67,5 @@ export function apply(ctx) {
       }
     })
     return () => { disposed = true; controller.abort(); clearInterval(timer); registration?.(); route?.() }
-  }, 'HQHarness managed model route')
+  }, 'Huaqing Desktop managed model route')
 }

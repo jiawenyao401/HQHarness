@@ -63,9 +63,9 @@ it('enforces GUI-first routing for real Agent turns and nested PTC tool dispatch
         async run(spec) {
           const tools = spec.bindings.find(binding => binding.global === 'tools').functions
           try {
-            if (spec.program === 'return await tools.web_search({query: "test"})') return { logs: [], value: await tools.web_search({ query: 'test' }) }
-            if (spec.program === 'return await tools.read({file_path: "fixture.txt"})') return { logs: [], value: await tools.read({ file_path: 'fixture.txt' }) }
-            if (spec.program === 'return await tools.browser_use({action: "observe"})') return { logs: [], value: await tools.browser_use({ action: 'observe' }) }
+            if (spec.program === 'return await tools.web_search({"query":"test"})') return { logs: [], value: await tools.web_search({ query: 'test' }) }
+            if (spec.program === 'return await tools.read({"file_path":"fixture.txt"})') return { logs: [], value: await tools.read({ file_path: 'fixture.txt' }) }
+            if (spec.program === 'return await tools.browser_use({"action":"observe"})') return { logs: [], value: await tools.browser_use({ action: 'observe' }) }
             throw new Error('Unexpected fixture program')
           } catch (error) { return { logs: [], value: { rejected: String(error.message) } } }
         }
@@ -132,7 +132,7 @@ it('enforces GUI-first routing for real Agent turns and nested PTC tool dispatch
         const read = () => call('read', { file_path: 'fixture.txt' })
         const browser = action => call('browser_use', { action })
         const computer = action => call('computer_use', { action })
-        const ptc = name => call('run_code', { code: name === 'browser_use' ? 'return await tools.browser_use({action: "observe"})' : name === 'read' ? 'return await tools.read({file_path: "fixture.txt"})' : 'return await tools.web_search({query: "test"})', description: 'Routing fixture' })
+        const ptc = name => call('run_code', { code: 'return await tools.' + name + '(' + JSON.stringify(name === 'browser_use' ? { action: 'observe' } : name === 'read' ? { file_path: 'fixture.txt' } : { query: 'test' }) + ')', description: 'Routing fixture' })
 
         // Native model calls go through the final guard before fixture execution.
         const preferred = await turn(first, 'Search the web and inspect my local file.', [web(), browser('status'), web(), browser('observe'), web(), computer('windows'), read(), computer('observe'), read()])
@@ -228,28 +228,39 @@ it('enforces GUI-first routing for real Agent turns and nested PTC tool dispatch
         const afterLate = call('web_search', { query: 'fixture' })
         blocked(await ctx.tools.execute({ callId: afterLate.id, name: afterLate.name, arguments: afterLate.arguments, agent: first, signal: new AbortController().signal }))
 
-        // A PTC program has no additional authority: every nested binding still
-        // traverses the routing guard with the owning Agent and root call ID.
+        // The default PTC entry accepts the literal GUI wrapper only. General
+        // programs cannot reach the substrate; valid GUI child calls still pass
+        // through the owning Agent's registry guard and durable event log.
         bridgeRules.delete('session-first:browser')
         const nestedCalls = [ptc('web_search'), ptc('read'), ptc('browser_use')]
         const nested = await turn(first, 'Search through the built-in browser.', nestedCalls)
-        nested.forEach(allowed)
-        assert.match(nested[0].value.result.rejected, /HQ_ROUTING_/)
-        assert.match(nested[1].value.result.rejected, /HQ_ROUTING_/)
+        blocked(nested[0]); blocked(nested[1]); allowed(nested[2])
         assert(nested[2].value.result.snapshot)
         const childResults = [...results.values()].filter(({ exec }) => nestedCalls.some(call => call.id === exec.rootCallId) && !nestedCalls.some(call => call.id === exec.callId))
-        assert.equal(childResults.length, 3, 'PTC did not use actual nested registry dispatch')
+        assert.equal(childResults.length, 1, 'Only the admitted GUI wrapper may reach nested dispatch')
         assert(childResults.every(({ exec }) => exec.agent === first && exec.parent))
-        assert.equal(childResults.filter(({ result }) => result.isError).length, 2)
+        assert.equal(childResults.filter(({ result }) => result.isError).length, 0)
         const ptcLog = first.session.snapshotEvents().filter(event => event.type === 'tool/ptc-dispatch')
-        assert.equal(ptcLog.length, 3, 'PTC child outcomes were not durably logged')
+        assert.equal(ptcLog.length, 1, 'The GUI child outcome was not durably logged')
         bridgeRules.set('session-first:browser', 'UNSUPPORTED_PLATFORM')
-        const nestedFallback = await turn(first, 'Search the web.', [ptc('browser_use'), ptc('web_search')])
-        nestedFallback.forEach(allowed)
+        const nestedFallback = await turn(first, 'Search the web.', [ptc('browser_use'), ptc('web_search'), web()])
+        allowed(nestedFallback[0]); blocked(nestedFallback[1]); allowed(nestedFallback[2])
         assert.match(nestedFallback[0].value.result.rejected, /Fixture native failure/)
-        assert.deepEqual(nestedFallback[1].value.result, { fixture: 'web_search' })
+        assert.deepEqual(nestedFallback[2].value, { fixture: 'web_search' })
+        bridgeRules.set('session-first:browser', 'DENIED')
+        const beforeDenial = bridgeCalls.length
+        const nestedDenied = await turn(first, 'Search the web.', [browser('observe'), ptc('browser_use')])
+        assert.equal(nestedDenied[0].error.info.code, 'DENIED')
+        allowed(nestedDenied[1])
+        assert.match(nestedDenied[1].value.result.rejected, /HQ_ROUTING_STOPPED/)
+        assert.equal(bridgeCalls.length, beforeDenial + 1, 'A refused GUI child must not reach the native bridge again')
+        const explicitPtc = await turn(first, '工具模式：直接工具', [ptc('web_search'), ptc('read')])
+        explicitPtc.forEach(allowed)
+        assert.deepEqual(explicitPtc.map(result => result.value.result), [{ fixture: 'web_search' }, { fixture: 'read' }])
+        const resetPtc = await turn(first, 'Search and inspect my file.', [ptc('web_search'), ptc('read')])
+        resetPtc.forEach(blocked)
         assert(modelRequests.length > 25, 'The real Agent/model loop was not exercised')
-        console.log('AUTOMATION_ROUTING_HARNESS_PASS ' + JSON.stringify({ modelRequests: modelRequests.length, nativeBridgeCalls: bridgeCalls.length, ptcDispatches: ptcLog.length }))
+        console.log('AUTOMATION_ROUTING_HARNESS_PASS ' + JSON.stringify({ modelRequests: modelRequests.length, nativeBridgeCalls: bridgeCalls.length, ptcDispatches: first.session.snapshotEvents().filter(event => event.type === 'tool/ptc-dispatch').length }))
       } finally { releaseObservation?.(); await ctx?.fiber.dispose(); await new Promise(resolve => bridge.close(resolve)) }
     `)
     const result = spawnSync(process.execPath, [path.join(root, 'build/harness-node-entry.mjs'), entry], {

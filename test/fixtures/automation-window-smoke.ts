@@ -7,7 +7,7 @@ import { ComputerAutomation } from '../../src/main/automation/computer'
 import { AutomationError, type AutomationOperation, type AutomationResult } from '../../src/shared/automation'
 
 app.on('window-all-closed', () => undefined)
-interface FixtureReady { pid: number; window: string; title: string }
+interface FixtureReady { pid: number; window: string; title: string; keeper: string }
 function record(value: unknown): Record<string, unknown> {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'Expected fixture JSON object')
   return value as Record<string, unknown>
@@ -27,7 +27,10 @@ async function readReady(directory: string, pid: number, title: string): Promise
     assert.equal(ready.pid, pid, 'The window must belong to the fixture child process')
     assert.equal(ready.title, title)
     assert(typeof ready.window === 'string' && /^[1-9]\d*$/u.test(ready.window))
-    return { pid, window: ready.window, title }
+    assert(typeof ready.keeper === 'string' && /^[1-9]\d*$/u.test(ready.keeper))
+    assert.notEqual(ready.keeper, ready.window)
+    assert.equal(ready.foreground, ready.keeper, 'The owned keeper must actually hold foreground before semantic-click acceptance')
+    return { pid, window: ready.window, title, keeper: ready.keeper }
   }
 }
 async function main(): Promise<void> {
@@ -75,13 +78,35 @@ async function main(): Promise<void> {
       const window = record(value)
       return window.pid === pid && window.window === ready.window && window.title === title
     }), 'Discovery must find the exact owned WinForms HWND')
-    const observation = await measured('native-structured-no-image', () => execute({ action: 'observe', pid, window: ready.window }))
+    let observation = await measured('native-structured-no-image', () => execute({ action: 'observe', pid, window: ready.window }))
     assert.equal(observation.image, undefined)
     assert.equal(observation.pid, pid)
     assert.equal(observation.window, ready.window)
     assert(Array.isArray(observation.elements))
     assert(observation.elements.some(value => record(value).name === 'Query'), 'The real UIA tree must expose the native textbox')
     assert(observation.elements.some(value => record(value).name === 'Search'), 'The real UIA tree must expose the native button')
+    assert.equal(observation.element_frame_space, 'native-screen')
+    assert(observation.window_bounds, 'The exact native window bounds must remain available')
+    const readOracle = async (name: string): Promise<Record<string, unknown>> => {
+      const deadline = performance.now() + 2500
+      for (;;) {
+        try { return record(JSON.parse(await readFile(path.join(directory, name), 'utf8'))) }
+        catch (error) {
+          if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') || performance.now() >= deadline) throw error
+          await delay(50, undefined, { signal: controller.signal })
+        }
+      }
+    }
+    observation = await measured('native-semantic-click-with-other-foreground-window', () => execute({ action: 'click', pid, window: ready.window, snapshot: String(observation.snapshot), target: { name: 'Background', role: 'Button' } }))
+    const backgroundOracle = await readOracle('background.json')
+    assert.equal(backgroundOracle.pid, pid)
+    assert.equal(backgroundOracle.clicks, 1, 'The background button handler must execute exactly once')
+    assert.equal(backgroundOracle.foreground, ready.keeper, 'The target handler must run while the separate owned keeper still holds foreground')
+    observation = await measured('native-background-list-item-double-click', () => execute({ action: 'click', pid, window: ready.window, snapshot: String(observation.snapshot), target: { name: 'DoubleTarget', role: 'ListItem' }, clicks: 2 }))
+    const doubleOracle = await readOracle('double.json')
+    assert.equal(doubleOracle.pid, pid)
+    assert.equal(doubleOracle.activations, 1, 'One count=2 request must produce exactly one real ListView ItemActivate event')
+    assert.deepEqual(doubleOracle.selected, ['DoubleTarget'])
     const prefix = '已有内容-'
     const suffix = '中文课堂 HQHarness 原生验收'
     const query = prefix + suffix
@@ -118,7 +143,7 @@ async function main(): Promise<void> {
     assert.deepEqual(pictured.coordinates, { width: pictured.image.width, height: pictured.image.height }, 'Window image attachments must retain their full source coordinate space')
     await assert.rejects(execute({ action: 'click', pid, window: ready.window, snapshot: String(observation.snapshot), target: { name: 'Search' } }), (error: unknown) => error instanceof AutomationError && error.code === 'STALE_SNAPSHOT')
     assert.equal(images, 1, 'Structured discovery and plans must not return screenshots')
-    console.log('WINDOW_LOCAL_EXECUTION_PASS ' + JSON.stringify({ platform: process.platform, arch: process.arch, operations, images, stages, value_verified: true, click_handler_count: 1, scope: 'real Windows UIA with an owned WinForms fixture; no model requests; not an end-to-end model speed comparison' }))
+    console.log('WINDOW_LOCAL_EXECUTION_PASS ' + JSON.stringify({ platform: process.platform, arch: process.arch, operations, images, stages, value_verified: true, click_handler_count: 1, foreground_preserved: true, double_click_activations: 1, scope: 'real Windows UIA with owned WinForms windows; no model requests; not an end-to-end model speed comparison' }))
   } finally { clearTimeout(timer); await computer.close() }
 }
 main().then(() => app.exit(0), error => { console.error(error); app.exit(1) })

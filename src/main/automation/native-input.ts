@@ -117,11 +117,15 @@ export class NativeInput {
   // 0.28's typed key/text inputs omit element_token and delivery_mode. These
   // fixed generic calls preserve exact token targeting and explicit delivery;
   // the token carries the original HWND without converting bigint to number.
-  private element(target: NativeElementTarget): Record<string, unknown> {
-    return { pid: target.pid, element_token: target.token, delivery_mode: 'foreground' }
+  private element(target: NativeElementTarget, delivery: 'foreground' | 'background' = 'foreground'): Record<string, unknown> {
+    return { pid: target.pid, element_token: target.token, delivery_mode: delivery }
   }
   async elementClick(target: NativeElementTarget, button: 'left' | 'right' = 'left', count = 1, signal: AbortSignal): Promise<void> {
-    await this.call('click', { ...this.element(target), button, count }, signal)
+    // Windows foreground clicks bypass UIA and tap the cached screen center.
+    // Prefer the exact token's UIA/PostMessage route instead: another window
+    // owning foreground must not turn a semantic click into blind SendInput.
+    // Refusal stays authoritative; never retry on a different delivery route.
+    await this.call('click', { ...this.element(target, process.platform === 'win32' ? 'background' : 'foreground'), button, count }, signal)
   }
   async elementText(target: NativeElementTarget, text: string, replace: boolean, signal: AbortSignal): Promise<void> {
     if (!replace && process.platform === 'win32') {

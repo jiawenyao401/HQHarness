@@ -30,7 +30,7 @@ async function openPage(file, model, theme, bridgeName) {
 }
 
 function expectIndependentBranding(document, locale, theme) {
-  expect(document.title).toContain('HQHarness')
+  expect(document.title).toContain('Huaqing Desktop')
   expect(document.documentElement.lang).toBe(locale === 'zh' ? 'zh-CN' : 'en')
   expect(document.documentElement.dataset.theme).toBe(theme)
   expect(document.querySelector('#community-wechat')).toBeNull()
@@ -39,7 +39,7 @@ function expectIndependentBranding(document, locale, theme) {
   expect(document.body.textContent).not.toContain('DSH Desktop')
 }
 
-describe('HQHarness independent recovery pages', () => {
+describe('Huaqing Desktop independent recovery pages', () => {
   it.each(variants)('keeps recovery and logs functional in $locale / $theme', async ({ locale, theme }) => {
     const model = buildPluginRecoveryViewModel({
       snapshot: { phase: 'failed', message: 'Harness stopped.', logs: [] },

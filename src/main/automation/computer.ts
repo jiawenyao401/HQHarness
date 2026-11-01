@@ -89,10 +89,13 @@ export class ComputerAutomation {
     return {
       snapshot: frame.id, pid: target.pid, window: target.window, observationScope: 'window',
       app: capture.appName, title: capture.windowTitle, elements,
+      ...(capture.windowBounds ? { window_bounds: capture.windowBounds } : {}),
+      element_frame_space: 'native-screen',
       truncated: capture.truncated ?? false, complete: capture.elementsComplete ?? false,
       degraded: capture.degraded ?? false, degraded_reason: capture.degradedReason,
+      next: 'Element frames use native screen coordinates, not window-local or screenshot coordinates. Use current refs or exact names for window input; the native provider determines visibility.',
       ...(screenshot && !coordinates ? { screenshot_unavailable: true } : {}),
-      ...(png && coordinates ? { coordinates, image: { png: png.dataBase64, ...coordinates }, next: 'Window screenshot coordinates are visual evidence. Use current refs here; observe the desktop before coordinate input.' } : {})
+      ...(png && coordinates ? { coordinates, image: { png: png.dataBase64, ...coordinates }, next: 'Window screenshot coordinates are visual evidence, distinct from native-screen element frames. Use current refs here; observe the desktop before coordinate input.' } : {})
     }
   }
   private currentWindow(owner: string, op: AutomationOperation): WindowFrame {

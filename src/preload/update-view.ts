@@ -130,10 +130,10 @@ export function updateMessage(status: UpdateStatus, locale: UpdateLocale): strin
 
 function unsupportedUpdateMessage(status: UpdateStatus, locale: UpdateLocale): string {
   if (status.message === UPDATE_UNAVAILABLE_MESSAGE) {
-    return locale === 'zh' ? 'HQHarness 更新服务尚未配置。' : status.message
+    return locale === 'zh' ? `${PRODUCT_NAME} 更新服务尚未配置。` : status.message
   }
   if (status.message === UPDATE_IDENTITY_UNAVAILABLE_MESSAGE) {
-    return locale === 'zh' ? 'HQHarness 更新签名身份缺失或与配置的更新渠道不符。' : status.message
+    return locale === 'zh' ? `${PRODUCT_NAME} 更新签名身份缺失或与配置的更新渠道不符。` : status.message
   }
   return status.message || (locale === 'zh'
     ? '当前版本不支持自动更新。'

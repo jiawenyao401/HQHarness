@@ -5,6 +5,7 @@ const user = text => ({ role: 'user', source: { kind: 'user' }, content: [{ type
 const success = value => ({ isError: false, value })
 const failure = code => ({ isError: true, error: { info: { code } } })
 const execution = (agent, name, action) => ({ agent, name, token: Symbol(name), arguments: action ? { action } : {} })
+const program = (agent, code) => ({ ...execution(agent, 'run_code'), arguments: { code } })
 function fixture(text = '完成当前任务', registry) {
   const audit = vi.fn()
   const policy = createAutomationRoutingPolicy(audit, registry)
@@ -44,8 +45,8 @@ describe('execution routing', () => {
     expect(fixture('请使用 Python 完成任务').call(name)).toBeUndefined()
   })
   it('leaves PTC transport available while guarding its actual nested tools', () => {
-    const { call } = fixture()
-    expect(call('run_code')).toBeUndefined()
+    const { call, policy, agent } = fixture()
+    expect(policy.guard(program(agent, 'return await tools.computer_use({"action":"observe"});'))).toBeUndefined()
     expect(call('web_search')).toContain('HQ_ROUTING_PREFERRED')
     expect(call('read')).toContain('HQ_ROUTING_PREFERRED')
     expect(call('computer_use', 'observe', success({ snapshot: 's1' }))).toBeUndefined()
@@ -126,6 +127,55 @@ describe('execution routing', () => {
     policy.claim({ agent, turn: 1, message: user('请使用 Python 完成任务') })
     expect(call('str_replace_editor')).toContain('HQ_ROUTING_PREFERRED')
     expect(call('bash')).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+  })
+})
+
+describe('bounded PTC GUI transport', () => {
+  it.each([
+    'return await tools.computer_use({"action":"observe"});',
+    ' \nreturn await tools.browser_use( {"action":"tabs"} )\n ',
+    'return await tools.computer_use({"action":"run","steps":[{"action":"click","target":{"name":"Save"}}]});',
+    'return await tools.computer_use(' + JSON.stringify({ action: 'type', text: '\"); await import("node:fs"); //', replace: true }) + ');'
+  ])('allows a data-only canonical GUI call: %s', code => {
+    const { policy, agent } = fixture()
+    expect(policy.guard(program(agent, code))).toBeUndefined()
+  })
+  it.each([
+    'const fs = await import("node:fs/promises"); return await fs.writeFile("fixture", "changed");',
+    'return await tools.computer_use({action:"observe"});',
+    'return await tools["computer_use"]({"action":"observe"});',
+    'return await tools.computer_use.constructor("return process")();',
+    'return await tools.computer_use(({}));',
+    'return await tools.computer_use({}); await import("node:fs");',
+    'return await tools.computer_use({"text":"fixture"}, await import("node:fs"));',
+    'return await tools.computer_use(JSON.parse("{}"));',
+    'return await tools.computer_use([]);',
+    'return await tools.computer_use(null);',
+    'return\nawait tools.computer_use({"action":"observe"});',
+    'return await tools.web_search({"query":"fixture"});',
+    'return await tools.computer_use({}); // hidden code',
+    '/* preface */ return await tools.computer_use({});'
+  ])('requires an explicit direct instruction for opaque or noncanonical programs: %s', code => {
+    const { policy, agent } = fixture()
+    expect(policy.guard(program(agent, code))).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+  })
+  it.each(['INPUT_REFUSED', 'element_not_visible', 'INPUT_UNCONFIRMED', 'DENIED', 'STOPPED'])('does not switch to opaque Node code after %s', code => {
+    const { policy, agent, call } = fixture()
+    call('computer_use', 'click', failure(code))
+    expect(policy.guard(program(agent, 'return await import("node:fs/promises");'))).toContain('HQ_ROUTING_STOPPED')
+    // A GUI wrapper has no raw I/O; the real child guard decides whether this
+    // capability may re-observe, report status, or must remain stopped.
+    expect(policy.guard(program(agent, 'return await tools.computer_use({"action":"observe"});'))).toBeUndefined()
+  })
+  it('allows opaque code only for an explicit human direct turn without an unresolved input', () => {
+    const { policy, agent, call } = fixture('工具模式：直接工具')
+    const opaque = 'return await import("node:fs/promises");'
+    expect(policy.guard(program(agent, opaque))).toBeUndefined()
+    call('computer_use', 'click', failure('INPUT_REFUSED'))
+    policy.claim({ agent, turn: 1, message: user('工具模式：直接工具') })
+    expect(policy.guard(program(agent, opaque))).toContain('HQ_ROUTING_STOPPED')
+    policy.claim({ agent, turn: 2, message: user('工具模式：直接工具') })
+    expect(policy.guard(program(agent, opaque))).toBeUndefined()
   })
 })
 
