@@ -15,6 +15,7 @@ HQHarness 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-h
 ## 功能
 
 - Electron 自动启动现有 Harness runtime 与 Web UI
+- 内置 Browser Use 与 Computer Use；网络任务优先浏览器，本机文件任务优先桌面应用，支持明确的本轮脚本/API 指令，见[工具路由说明](docs/desktop-automation.md)
 - 原生工作区选择、Huaqing Switch 模型连接、Profile 和会话管理
 - `.dshpreset` 预设导入导出，内置 PPTX、DOCX、XLSX 工具
 - Safe Mode、插件恢复与启动诊断；正常界面无法打开时可使用 `--safe-mode` 启动

@@ -1,6 +1,7 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { registerAutomationContextPruning } from './context-pruning.js'
+import { registerAutomationToolRouting } from './tool-routing.js'
 
 export const name = 'desktop-automation'
 export const inject = ['tools', 'attachments', 'systemPrompt']
@@ -133,6 +134,7 @@ export function createAutomationPlugin(capability, request = callDesktop) {
 }
 export function apply(ctx) {
   registerAutomationContextPruning(ctx)
+  registerAutomationToolRouting(ctx)
   ctx.plugin(createAutomationPlugin('browser'))
   ctx.plugin(createAutomationPlugin('computer'))
 }

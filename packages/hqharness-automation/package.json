@@ -1,12 +1,12 @@
 {
   "name": "hqharness-automation",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Built-in Browser Use and Computer Use plugins for HQHarness on macOS and Windows.",
   "private": true,
   "type": "module",
   "main": "./index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
-  "files": ["index.js", "context-pruning.js", "client.js", "README.md"],
+  "files": ["index.js", "context-pruning.js", "tool-routing.js", "client.js", "README.md"],
   "license": "MIT",
   "dsh": { "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-settings-plugins"] } },
   "peerDependencies": {

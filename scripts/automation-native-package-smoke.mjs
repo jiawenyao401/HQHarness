@@ -89,6 +89,34 @@ async function qualifyOwnedTools(appRoot) {
       assert.equal(calls.length, 4, 'History maintenance must not dispatch native input')
     } finally { cut[Symbol.dispose]() }
     console.log('PACKAGED_CONTEXT_PRUNING_PASS: exact packaged helper, services, Agent pre-step, retained semantic rows, latest observations and durable original history')
+    // Exercise the guard from the shipped module and dependency closure. These
+    // fixtures cannot touch a real file, website or desktop input.
+    const { defineTool } = await import(moduleUrl('@deepseek-ai/dsh-tools'))
+    const { agentEvents } = await import(moduleUrl('@deepseek-ai/dsh-agent'))
+    let directCalls = 0
+    for (const name of ['web_search', 'read']) ctx.tools.register(defineTool({
+      name, description: 'Packaged routing qualification fixture', parameters: {},
+      output: { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+      isConcurrencySafe: () => true,
+      execute() { directCalls++; return { fixture: true } }
+    }))
+    const routingAgent = await ctx.agentLoop.create('session-packaged-routing')
+    const executeFixture = (agent, name) => ctx.tools.execute({ callId: 'routing-' + name, name, arguments: {}, agent, signal: new AbortController().signal })
+    for (const name of ['web_search', 'read']) {
+      const rejected = await executeFixture(routingAgent, name)
+      assert.equal(rejected.isError, true)
+      assert(rejected.content.some(block => /HQ_ROUTING_PREFERRED/.test(block.text ?? '')))
+    }
+    assert.equal(directCalls, 0)
+    agentEvents(ctx, routingAgent).emit('agent/inbox/claimed', { message: createUserMessage({ content: [{ type: 'text', text: '工具模式：直接工具' }], source: { kind: 'user' } }), turn: 1 })
+    for (const name of ['web_search', 'read']) assert.equal((await executeFixture(routingAgent, name)).isError, false)
+    assert.equal(directCalls, 2)
+    assert.equal((await executeFixture(agent, 'read')).isError, true, 'Another Agent must keep GUI preference')
+    agentEvents(ctx, routingAgent).emit('agent/inbox/claimed', { message: createUserMessage({ content: [{ type: 'text', text: 'Inspect my local file.' }], source: { kind: 'user' } }), turn: 2 })
+    assert.equal((await executeFixture(routingAgent, 'read')).isError, true, 'A new turn must reset direct mode')
+    assert.equal(directCalls, 2)
+    assert.equal(calls.length, 4, 'Routing qualification must not dispatch native input')
+    console.log('PACKAGED_TOOL_ROUTING_PASS: exact packaged guard, real Agent events, web/file preference, explicit override, next-turn reset and Agent isolation')
   } finally {
     await ctx?.fiber.dispose()
     server.closeAllConnections()

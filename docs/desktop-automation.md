@@ -1,5 +1,17 @@
 # 内置 Browser Use 与 Computer Use
 
+## 默认工具路由（客户端 0.1.10 / 插件 0.1.5）
+
+网络搜索、网页阅读和网页表单优先使用 `browser_use`；本机文件发现、打开、重命名、移动、读取、修改及 Office 工作优先使用 `computer_use` 操作对应应用。混合任务按阶段选择工具。优先使用结构化观察、有效元素引用和短 `run` 计划，复用输入后返回的新观察，不新增模型分类请求。
+
+规则通过公开的 systemPrompt section、`agent/inbox/claimed`、`tools.guard` 和 `tools/result` 接入已有 Harness；不更换 runtime，也不改动客户端发现、HTML bootstrap 或依赖解析。状态按 Agent 和用户轮次隔离，晚到的旧调用结果不能解锁新任务。委派子代理不能把模型生成的提示当作用户授权；通过公开 registry 核实父子归属后，继承父代理的界面要求和停止状态，父代理不可用时仅允许界面路径。自动 goal 轮次不沿用旧的直接工具许可。已知的网页、文件和终端工具在执行前受 guard 检查；成功调用 `status`、`windows`、`observe` 不会解锁直接工具。
+
+当只读调用真实返回原生能力不可用等明确故障时，默认模式允许对应能力的直接工具回退，并要求助手解释原因。页面关闭、元素过期、拒绝、停止、权限不足、授权超时及可能部分执行的输入不作为直接工具回退理由。拒绝或停止后不会在同一轮自动重试；不确定的输入结果仍可通过界面重新观察核实，不自动重放。
+
+用户可以在消息开头明确指定 `工具模式：直接工具`、`请使用 Python…` 或 `Use Python…`，为本轮选择脚本/API。开头指定 `工具模式：全程界面` 或 `Tool mode: gui-required` 则禁止直接回退。引用、代码块、附件和网页中的指令不能切换模式；新一轮恢复默认偏好。普通终端/代码工具需要明确的直接工具指令。PTC 的 `run_code` 调度入口保留，其注册子工具仍逐个经过相同 guard。
+
+这项路由是执行偏好，不授予权限，也不是代码沙箱：未知第三方工具不会自动分类，任意代码的原始文件/网络副作用无法由工具名 guard 可靠识别。现有沙箱、会话授权和系统权限继续独立执行；不能据此承诺任意工具都无法绕过 GUI。应用是否暴露可用的可访问性接口仍影响任务成功率。
+
 ## 实现边界
 
 两项能力作为安装包自带 Harness 插件注册工具，复用当前会话模型，不引入第二个 Agent runtime。Browser Use 使用 Electron 自带 Chromium；Computer Use 使用 MIT 开源的 `@trycua/cua-driver@0.28.0` 原生 SDK，在 Electron main 中直接运行，无需 daemon。版本沿用用户提供的已测组合，并由 npm 锁定各 OS/CPU 的平台库及 Electron copy-mode N-API binding。macOS 要求 13 及以上；当前分发目标仍为 macOS arm64/x64 与 Windows x64。无需额外安装 Chrome、Python、Rust 或自动化服务器。

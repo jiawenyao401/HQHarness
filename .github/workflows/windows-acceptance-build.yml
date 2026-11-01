@@ -83,6 +83,7 @@ jobs:
             nativeConsentTimeoutAndRetry = 'passed (actual Electron dialogs; installed UI pending)'
             losslessScreenshotOutput = 'passed'
             automationHistoryPruning = 'passed (actual ASAR helper, services and Agent pre-step; original history and semantic rows preserved)'
+            automationToolRouting = 'passed (actual ASAR guard; web/file preference, explicit user override, next-turn reset and Agent isolation)'
             structuredBrowserLocalExecution = 'passed (real Electron owned page; no model requests)'
             nativeWindowsUiaLocalExecution = 'passed (owned WinForms application; real UIA text value and click handler verified; no model requests)'
             localExecutionTimingEvidence = 'stage timings and image counts in the native acceptance logs delivered with this installer'
