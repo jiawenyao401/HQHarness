@@ -1,0 +1,49 @@
+{
+  "name": "hqharness-wps",
+  "version": "0.1.0",
+  "description": "Installation-owned local WPS document tools for Huaqing Desktop.",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./protocol": {
+      "types": "./protocol.d.ts",
+      "default": "./protocol.js"
+    },
+    "./package.json": "./package.json",
+    "./client": "./client.js"
+  },
+  "files": [
+    "index.js",
+    "protocol.js",
+    "protocol.d.ts",
+    "addin",
+    "client.js",
+    "THIRD-PARTY-NOTICES.txt"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.2.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-sandbox-policy": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.2.0-rc.2",
+    "hqharness-automation": "^0.1.6",
+    "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "^0.2.0-rc.2"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ]
+    }
+  }
+}

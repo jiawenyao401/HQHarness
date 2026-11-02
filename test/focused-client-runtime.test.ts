@@ -36,11 +36,24 @@ it.each(['web', SAFE_MODE_PROFILE])('boots %s without market modules and retains
     const bootScript = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gu)]
       .map(match => match[1]).find(script => script?.includes('__DSH_BOOT__'))
     if (!bootScript) throw new Error('Missing actual client graph')
-    const window: { __DSH_BOOT__?: { entries?: { id: string }[] } } = {}
+    const window: { __DSH_BOOT__?: { entries?: { id: string; url: string }[] } } = {}
     runInNewContext(bootScript, { window, globalThis: window })
     const ids = window.__DSH_BOOT__?.entries?.map(entry => entry.id)
-    if (profile === 'web') expect(ids).toContain('hqharness-automation')
-    else expect(ids).not.toContain('hqharness-automation')
+    if (profile === 'web') {
+      expect(ids).toContain('hqharness-automation')
+      expect(ids).toContain('hqharness-wps')
+      const wps = window.__DSH_BOOT__?.entries?.find(entry => entry.id === 'hqharness-wps')
+      if (!wps) throw new Error('Missing actual WPS client graph entry')
+      const client = await fetch(new URL(wps.url, state.url), { headers: { Cookie: cookie } })
+      expect(client.status).toBe(200)
+      expect(client.headers.get('content-type')).toContain('javascript')
+      const registered: string[] = []
+      runInNewContext(await client.text(), { window: { __ModuleLoader__: { load: (entry: { id: string }) => registered.push(entry.id) } } })
+      expect(registered).toContain('hqharness-wps')
+    } else {
+      expect(ids).not.toContain('hqharness-automation')
+      expect(ids).not.toContain('hqharness-wps')
+    }
     // The model backend stays loaded without contributing an employee-login editor.
     expect(ids).not.toContain('hqharness-model-access')
     expect(ids).toContain('@deepseek-ai/dsh-client-ui-settings-plugins')

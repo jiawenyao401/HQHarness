@@ -1,5 +1,6 @@
 import { PRODUCT_NAME } from '../shared/brand'
 import { DesktopAutomationService } from './automation/service'
+import { DesktopWpsService } from './wps/service'
 import { huaqingSwitchEnvironment } from './huaqing-switch'
 import { applicationIdentity, applicationUserData } from './application-identity'
 import { resolveDesktopResourcePath } from './desktop-resources'
@@ -228,6 +229,7 @@ let mobileWindow: BrowserWindow | undefined
 let tray: Tray | undefined
 let runtime: HarnessRuntime
 let desktopAutomation: DesktopAutomationService | undefined
+let desktopWps: DesktopWpsService | undefined
 let desktopStorageManager: DesktopStorageManager | undefined
 let windowStateManager: WindowStateManager | undefined
 let mobileBridge: LanMobileBridge
@@ -3258,6 +3260,10 @@ async function bootstrap(): Promise<void> {
   })
   createWindow()
   desktopAutomation = new DesktopAutomationService(() => mainWindow, harnessLocale)
+  desktopWps = new DesktopWpsService(join(app.getPath('userData'), 'wps'), () => mainWindow, harnessLocale)
+  await desktopWps.start()
+  desktopWps.registerIpc(assertTrustedMainWindowEvent)
+  desktopAutomation.onStopped = () => desktopWps?.stop()
   await desktopAutomation.start()
   desktopAutomation.registerIpc(assertTrustedMainWindowEvent)
   runtime = new HarnessRuntime({
@@ -3274,7 +3280,7 @@ async function bootstrap(): Promise<void> {
     // Keep the Harness origin stable across launches. These ports are separate
     // from the production/development mobile bridge ports (43137/43138).
     preferredPort: DEFAULT_HARNESS_PORT + (developmentBuild ? 1 : 0),
-    extraEnvironment: () => ({ ...desktopAutomation?.environment(), ...huaqingSwitchEnvironment() }),
+    extraEnvironment: () => ({ ...desktopAutomation?.environment(), ...desktopWps?.environment(), ...huaqingSwitchEnvironment() }),
     launchProcess: (executablePath, args, options) =>
       process.platform === 'darwin'
         ? launchDisclaimedUtilityProcess(utilityProcess, args, options, {
@@ -3649,7 +3655,7 @@ if (isDaemonLaunch(process.env, process.platform)) {
       tray = undefined
       repairAgentService?.dispose()
       repairAgentService = undefined
-      void Promise.all([runtime.stop(), mobileBridge?.stop(), desktopAutomation?.close()]).finally(() => app.quit())
+      void Promise.all([runtime.stop(), mobileBridge?.stop(), desktopAutomation?.close(), desktopWps?.close()]).finally(() => app.quit())
     })
   }
 }

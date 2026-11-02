@@ -174,6 +174,11 @@ contextBridge.exposeInMainWorld('hqDesktopAutomation', {
   permissions: () => ipcRenderer.invoke('hq:automation:permissions'),
   stop: () => ipcRenderer.invoke('hq:automation:stop')
 })
+contextBridge.exposeInMainWorld('hqWps', {
+  status: () => ipcRenderer.invoke('hq:wps:status'),
+  register: () => ipcRenderer.invoke('hq:wps:register'),
+  stop: () => ipcRenderer.invoke('hq:wps:stop')
+})
 
 contextBridge.exposeInMainWorld('hqModelSource', 'huaqing-switch')
 

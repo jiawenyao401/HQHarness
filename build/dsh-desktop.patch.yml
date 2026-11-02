@@ -54,6 +54,8 @@
     # Two built-in tool plugins share one installation-owned capability bridge.
     - id: hqharness-automation
       name: hqharness-automation
+    - id: hqharness-wps
+      name: hqharness-wps
 
     - id: hqharness-model-access
       name: hqharness-model-access

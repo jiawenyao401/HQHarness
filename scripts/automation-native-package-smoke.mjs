@@ -3,14 +3,81 @@ import { electronExecutable } from './electron-node-loader.mjs'
 import path from 'node:path'
 
 const source = `
-const { readFileSync, existsSync } = require('node:fs')
-const { join, resolve } = require('node:path')
+const { readFileSync, existsSync, realpathSync } = require('node:fs')
+const { join, resolve, relative, isAbsolute, sep } = require('node:path')
+const { createRequire } = require('node:module')
 const { pathToFileURL } = require('node:url')
 const assert = require('node:assert/strict')
 const { createServer } = require('node:http')
 const { randomBytes } = require('node:crypto')
 const { mkdtemp, realpath, writeFile, rm } = require('node:fs/promises')
 const { tmpdir } = require('node:os')
+async function packagedWpsFixture(appRoot) {
+  const appRequire = createRequire(join(appRoot, 'package.json'))
+  const ownedEntry = (name, directory) => {
+    // Require the package in this installation before resolving its exports.
+    // An ancestor/development copy must not hide a missing ASAR dependency.
+    const folder = realpathSync(join(appRoot, 'node_modules', directory))
+    const entry = appRequire.resolve(name)
+    const child = relative(folder, realpathSync(entry))
+    assert(child && !isAbsolute(child) && child !== '..' && !child.startsWith('..' + sep), 'Package escaped the explicit appRoot: ' + name)
+    return entry
+  }
+  const serverEntry = ownedEntry('@modelcontextprotocol/server', '@modelcontextprotocol/server')
+  assert.equal(JSON.parse(readFileSync(join(appRoot, 'node_modules/@modelcontextprotocol/server/package.json'), 'utf8')).version, '2.2.0')
+  const { Server, WebStandardStreamableHTTPServerTransport } = appRequire(serverEntry)
+  const pluginEntry = ownedEntry('hqharness-wps', 'hqharness-wps')
+  const { WPS_TOOL_NAME, WPS_RAW_TOOL_NAME, WPS_INPUT_SCHEMA, validateWpsOperation, validateWpsCallMeta } = await import(pathToFileURL(ownedEntry('hqharness-wps/protocol', 'hqharness-wps')).href)
+  const token = randomBytes(32).toString('hex')
+  const calls = []
+  const value = { fixture: 'packaged-wps-mcp', supported: true, connectedDocuments: 0 }
+  let failure
+  let origin
+  const listener = createServer((request, response) => {
+    void (async () => {
+      assert(request.url === '/mcp' && request.headers.host === origin.slice(7), 'Unexpected WPS fixture request')
+      assert(request.headers.authorization === 'Bearer ' + token, 'WPS fixture bearer was not supplied')
+      assert(!request.headers.origin || request.headers.origin === origin, 'Unexpected WPS fixture origin')
+      assert.match(request.headers['x-hq-wps-client'] ?? '', /^[a-f0-9-]{36}$/u)
+      // The standard client may probe for an SSE stream. This stateless
+      // fixture mirrors Main's POST-only transport rather than opening one.
+      if (request.method !== 'POST') { response.writeHead(405).end(); return }
+      let body = ''
+      for await (const chunk of request) { body += chunk; assert(Buffer.byteLength(body) <= 80 * 1024, 'Oversized WPS fixture request') }
+      const sdk = new Server({ name: 'packaged-wps-mcp-fixture', version: '0.1.0' }, { capabilities: { tools: {} } })
+      const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: 80 * 1024 })
+      sdk.setRequestHandler('tools/list', () => ({ tools: [{ name: WPS_RAW_TOOL_NAME, description: 'Owned package qualification fixture; no WPS application is accessed.', inputSchema: WPS_INPUT_SCHEMA }] }))
+      sdk.setRequestHandler('tools/call', (call, context) => {
+        assert.equal(call.params.name, WPS_RAW_TOOL_NAME)
+        const operation = validateWpsOperation(call.params.arguments)
+        assert.deepEqual(operation, { action: 'status' }, 'The packaged MCP fixture supports status only')
+        const meta = validateWpsCallMeta(context.mcpReq._meta?.huaqing)
+        calls.push({ operation, meta, client: request.headers['x-hq-wps-client'] })
+        return { content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value }
+      })
+      try {
+        await sdk.connect(transport)
+        const headers = new Headers()
+        for (const [key, value] of Object.entries(request.headers)) if (typeof value === 'string') headers.set(key, value)
+        const result = await transport.handleRequest(new Request(origin + '/mcp', { method: 'POST', headers, body }))
+        response.writeHead(result.status, Object.fromEntries(result.headers))
+        response.end(Buffer.from(await result.arrayBuffer()))
+      } finally { await sdk.close() }
+    })().catch(error => {
+      failure ??= error
+      if (!response.headersSent) response.writeHead(500).end('Packaged MCP fixture failed')
+      else response.destroy()
+    })
+  })
+  listener.requestTimeout = 5000
+  listener.headersTimeout = 5000
+  await new Promise((resolve, reject) => { listener.once('error', reject); listener.listen(0, '127.0.0.1', () => { listener.off('error', reject); resolve() }) })
+  origin = 'http://127.0.0.1:' + listener.address().port
+  return { calls, value, pluginEntry, toolName: WPS_TOOL_NAME, url: origin + '/mcp', token,
+    assertHealthy() { if (failure) throw failure },
+    async close() { listener.closeAllConnections(); await new Promise(resolve => listener.close(resolve)) }
+  }
+}
 async function qualifyOwnedTools(appRoot) {
   const home = await realpath(await mkdtemp(join(tmpdir(), 'hq-packaged-agent-')))
   const moduleUrl = name => pathToFileURL(join(appRoot, 'node_modules', name, 'lib/index.js')).href
@@ -32,10 +99,15 @@ async function qualifyOwnedTools(appRoot) {
     res.end(JSON.stringify(input.operation.action === 'observe' ? { snapshot: 'test-frame', coordinates: { width: 1000, height: 600 }, image: { png: 'AA==' } } : { available: true }))
   })
   let ctx
+  let wps
+  const wpsDispatches = []
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+    wps = await packagedWpsFixture(appRoot)
     process.env.HQHARNESS_AUTOMATION_URL = 'http://127.0.0.1:' + server.address().port + '/operation'
     process.env.HQHARNESS_AUTOMATION_TOKEN = token
+    process.env.HQHARNESS_WPS_URL = wps.url
+    process.env.HQHARNESS_WPS_TOKEN = wps.token
     process.env.DSH_HOME = home
     const config = join(home, 'cordis.yml')
     await writeFile(config, JSON.stringify([
@@ -45,11 +117,13 @@ async function qualifyOwnedTools(appRoot) {
       { id: 'sandbox-policy', name: moduleUrl('@deepseek-ai/dsh-sandbox-policy'), config: { mode: 'workspace-write', workspaceRoot: home } },
       { id: 'ptc-runtime', name: moduleUrl('@deepseek-ai/dsh-ptc-runtime-node') },
       { id: 'history-query', name: moduleUrl('@deepseek-ai/dsh-session-query-sqlite'), config: { path: ':memory:', openAt: 'never' } },
-      { id: 'automation', name: pathToFileURL(join(appRoot, 'node_modules/hqharness-automation/index.js')).href }
+      { id: 'automation', name: pathToFileURL(join(appRoot, 'node_modules/hqharness-automation/index.js')).href },
+      { id: 'wps', name: pathToFileURL(wps.pluginEntry).href }
     ]))
     const { boot } = await import(moduleUrl('@deepseek-ai/dsh-app-boot'))
     ctx = await boot('packaged-automation-qualification', config, [], ctx => {
       ctx.provide('attachments', { async saveImage() { return { attachmentId: 'test-frame', mediaType: 'image/png', width: 500, height: 300, bytes: 1 } } })
+      ctx.on('tools/result', (exec, result) => { if (exec.name === wps.toolName) wpsDispatches.push({ exec, result }) })
     })
     const agent = await ctx.agentLoop.create('session-packaged-automation')
     assert.equal(agent.session.header.id, 'session-packaged-automation')
@@ -64,6 +138,15 @@ async function qualifyOwnedTools(appRoot) {
     }
     assert.deepEqual(calls.map(call => call.owner), Array(4).fill('session-packaged-automation'))
     console.log('PACKAGED_OWNED_TOOLS_PASS: actual packaged Agent, ToolRuntime, automation module, authenticated test bridge and lossless screenshot results')
+    const wpsPolicy = agent => {
+      const resolved = ctx.sandboxPolicy.resolve({ session: agent.session })
+      return { mode: resolved.mode, workspaceRoot: resolved.workspaceRoot }
+    }
+    const nativeWpsPolicy = wpsPolicy(agent)
+    const nativeWps = await ctx.tools.execute({ callId: 'packaged-wps-native', name: wps.toolName, arguments: { action: 'status' }, agent, signal: new AbortController().signal })
+    assert.equal(nativeWps.isError, false, JSON.stringify(nativeWps.content))
+    assert.deepEqual(nativeWps.value.structuredContent, wps.value)
+    assert.deepEqual(wps.calls.map(call => ({ operation: call.operation, meta: call.meta })), [{ operation: { action: 'status' }, meta: { owner: agent.session.header.id, policy: nativeWpsPolicy } }])
     // Qualify the optional history hook from this exact installed dependency
     // closure too. Fixture events never dispatch browser/desktop input.
     const { createUserMessage, createAssistantMessage, createToolResultMessage, ToolCallId } = await import(moduleUrl('@deepseek-ai/dsh-llm'))
@@ -171,11 +254,29 @@ async function qualifyOwnedTools(appRoot) {
     assert.equal(readFileSync(marker, 'utf8'), 'approved fixture')
     assert.equal(calls.length, 7, 'Only three owned bridge fixtures may be called; no real desktop input')
     console.log('PACKAGED_REAL_PTC_ROUTING_PASS: real packaged Node process and sandbox, canonical GUI binding, refused-input opaque-I/O denial, explicit new-turn authorization and default reset')
+    const ptcWpsPolicy = wpsPolicy(ptcAgent)
+    const ptcWps = await program('return await tools.' + wps.toolName + '({"action":"status"});')
+    assert.equal(ptcWps.isError, false, JSON.stringify(ptcWps.content))
+    assert.deepEqual(ptcWps.value.result.structuredContent, wps.value)
+    assert.equal(ptcWps.value.sandbox.mode, ptcWpsPolicy.mode)
+    wps.assertHealthy()
+    assert.equal(wps.calls.length, 2)
+    assert.deepEqual(wps.calls[1].operation, { action: 'status' })
+    assert.deepEqual(wps.calls[1].meta, { owner: ptcAgent.session.header.id, policy: ptcWpsPolicy })
+    assert.equal(wps.calls[1].client, wps.calls[0].client, 'The same SDK transport must retain its client identity')
+    const nestedWps = wpsDispatches.find(({ exec }) => exec.rootCallId !== exec.callId)
+    assert(nestedWps?.exec.parent, 'WPS PTC did not execute through the real child ToolRuntime pipeline')
+    assert.equal(nestedWps.exec.agent, ptcAgent)
+    assert.equal(calls.length, 7, 'WPS qualification must not dispatch GUI input')
+    console.log('PACKAGED_WPS_MCP_PASS: actual appRoot WPS plugin and MCP SDK 2.2.0 server/client, real Agent policy/owner and strict Node PTC round trip; owned status fixture only, no real WPS connection')
   } finally {
-    await ctx?.fiber.dispose()
-    server.closeAllConnections()
-    await new Promise(resolve => server.close(resolve))
-    await rm(home, { recursive: true, force: true })
+    try { await ctx?.fiber.dispose() }
+    finally {
+      await wps?.close()
+      server.closeAllConnections()
+      await new Promise(resolve => server.close(resolve))
+      await rm(home, { recursive: true, force: true })
+    }
   }
 }
 async function run() {

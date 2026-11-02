@@ -11,6 +11,7 @@ const SHORTCUT = 'CommandOrControl+Shift+F12'
 const INPUT_TIMEOUT_MS = 15_000
 interface AutomationTimeouts { authorizationMs: number; operationMs: number }
 export class DesktopAutomationService {
+  onStopped?: () => void
   private server?: Server
   private port = 0
   private token = randomBytes(32).toString('hex')
@@ -38,6 +39,7 @@ export class DesktopAutomationService {
   }
   status(): AutomationStatus { return { ...this.computer.permissions(), activeSessions: this.gate.activeSessions, shortcut: this.shortcut } }
   stop(): void {
+    this.onStopped?.()
     this.gate.stop()
     for (const controller of this.active) controller.abort(new AutomationError('STOPPED', 'Automation was stopped'))
     this.browser.stop()

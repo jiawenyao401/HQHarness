@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="HuaqingDesktopOnLoad"><ribbon startFromScratch="false"/></customUI>
