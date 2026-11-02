@@ -38,8 +38,9 @@ async function afterPack(context) {
   const product = context.packager.appInfo.productFilename
   const contents = path.join(context.appOutDir, `${product}.app`, 'Contents')
   const resources = process.platform === 'darwin' ? path.join(contents, 'Resources') : path.join(context.appOutDir, 'resources')
+  const { macHelperExecutable } = await import('../build/macos-helper-executable.mjs')
   const executable = process.platform === 'darwin'
-    ? path.join(contents, 'Frameworks', `${product} Helper.app`, 'Contents', 'MacOS', `${product} Helper`)
+    ? macHelperExecutable(path.join(contents, 'MacOS', product))
     : path.join(context.appOutDir, `${product}.exe`)
   await verifyOfficeRuntime(resources, executable)
 }

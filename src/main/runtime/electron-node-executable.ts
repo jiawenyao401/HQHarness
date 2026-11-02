@@ -1,4 +1,4 @@
-import { posix } from 'node:path'
+import { macHelperExecutable } from '../../../build/macos-helper-executable.mjs'
 
 /**
  * The Electron binary that runs Node work outside Harness — Profile repair,
@@ -16,8 +16,5 @@ export function electronNodeExecutable(
   platform: NodeJS.Platform = process.platform
 ): string {
   if (platform !== 'darwin') return execPath
-  // <App>.app/Contents/MacOS/<Name> → <App>.app/Contents/Frameworks/<Name> Helper.app/…
-  const name = posix.basename(execPath)
-  const contents = posix.dirname(posix.dirname(execPath))
-  return posix.join(contents, 'Frameworks', `${name} Helper.app`, 'Contents', 'MacOS', `${name} Helper`)
+  return macHelperExecutable(execPath)
 }

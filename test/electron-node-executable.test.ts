@@ -1,12 +1,62 @@
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createRequire } from 'node:module'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { electronNodeExecutable } from '../src/main/runtime/electron-node-executable'
 
+const fixtures: string[] = []
+afterEach(() => { for (const directory of fixtures.splice(0)) rmSync(directory, { recursive: true, force: true }) })
+function packagedMacFixture(): { main: string; contents: string } {
+  const directory = mkdtempSync(join(tmpdir(), 'huaqing-helper-path-')).replace(/\\/gu, '/')
+  fixtures.push(directory)
+  const contents = `${directory}/HQHarness.app/Contents`
+  mkdirSync(`${contents}/MacOS`, { recursive: true })
+  mkdirSync(`${contents}/Frameworks`)
+  const main = `${contents}/MacOS/HQHarness`
+  writeFileSync(main, 'fixture executable', { mode: 0o755 })
+  return { main, contents }
+}
+function helper(contents: string, name: string): string {
+  const directory = `${contents}/Frameworks/${name}.app/Contents/MacOS`
+  mkdirSync(directory, { recursive: true })
+  const executable = `${directory}/${name}`
+  writeFileSync(executable, 'fixture executable', { mode: 0o755 })
+  return executable
+}
+
 describe('electronNodeExecutable', () => {
+  it('uses the actual generic Helper when display and executable names differ', () => {
+    const { main, contents } = packagedMacFixture()
+    helper(contents, 'Huaqing Desktop Helper (GPU)')
+    helper(contents, 'Huaqing Desktop Helper (Renderer)')
+    const expected = helper(contents, 'Huaqing Desktop Helper')
+    expect(electronNodeExecutable(main, 'darwin')).toBe(expected)
+  })
+  it('refuses an incomplete or ambiguous real packaged Helper layout', () => {
+    const { main, contents } = packagedMacFixture()
+    expect(() => electronNodeExecutable(main, 'darwin')).toThrow('generic Electron Helper')
+    helper(contents, 'Old Brand Helper')
+    helper(contents, 'New Brand Helper')
+    expect(() => electronNodeExecutable(main, 'darwin')).toThrow('generic Electron Helper')
+  })
+  it('refuses a missing Frameworks directory or a directory masquerading as an executable', () => {
+    const { main, contents } = packagedMacFixture()
+    const fake = `${contents}/Frameworks/Huaqing Desktop Helper.app/Contents/MacOS/Huaqing Desktop Helper`
+    mkdirSync(fake, { recursive: true })
+    expect(() => electronNodeExecutable(main, 'darwin')).toThrow('generic Electron Helper')
+    rmSync(`${contents}/Frameworks`, { recursive: true })
+    expect(() => electronNodeExecutable(main, 'darwin')).toThrow('generic Electron Helper directory')
+  })
   it('uses the app Helper on macOS', () => {
-    expect(electronNodeExecutable('/Applications/DSH Desktop.app/Contents/MacOS/DSH Desktop', 'darwin'))
-      .toBe('/Applications/DSH Desktop.app/Contents/Frameworks/DSH Desktop Helper.app/Contents/MacOS/DSH Desktop Helper')
+    const { main, contents } = packagedMacFixture()
+    const expected = helper(contents, 'HQHarness Helper')
+    expect(electronNodeExecutable(main, 'darwin')).toBe(expected)
+    expect(electronNodeExecutable(expected, 'darwin')).toBe(expected)
+  })
+
+  it('leaves a standalone Node path unchanged on macOS', () => {
+    expect(electronNodeExecutable('/usr/local/bin/node', 'darwin')).toBe('/usr/local/bin/node')
   })
 
   it('uses the main executable elsewhere', () => {

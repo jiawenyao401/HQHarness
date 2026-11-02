@@ -75,9 +75,10 @@ module.exports = async function verifyPackagedPptRuntime(context) {
   if (!appRoot) throw new Error('Cannot locate the packaged application runtime')
   // The packaged Electron executable is the only Node runtime the app ships;
   // macOS runs Node work through its Helper, as the Desktop does.
+  const { macHelperExecutable } = await import('../build/macos-helper-executable.mjs')
   const executable = process.platform === 'win32'
     ? path.join(context.appOutDir, product + '.exe')
-    : path.join(macContents, 'Frameworks', product + ' Helper.app', 'Contents', 'MacOS', product + ' Helper')
+    : macHelperExecutable(path.join(macContents, 'MacOS', product))
   if (!require('node:fs').existsSync(executable)) throw new Error('Cannot locate the packaged Electron executable')
   await execFileAsync(executable, [__filename, '--verify-runtime', appRoot], {
     cwd: path.dirname(appRoot),

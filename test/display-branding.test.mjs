@@ -13,14 +13,14 @@ describe('display branding with stable installed identities', () => {
   it.each([
     ['Huaqing Desktop', metadata.build, 'HQHarness', 'app.hqharness.desktop'],
     ['Huaqing Desktop Dev', development, 'HQHarness Dev', 'app.hqharness.desktop.dev']
-  ])('keeps executable, bundle/helper and NSIS installation names stable for %s', (product, config, executable, appId) => {
+  ])('keeps executable, bundle and NSIS installation names stable for %s', (product, config, executable, appId) => {
     const actual = new AppInfo({ metadata, config })
     expect(actual.productName).toBe(product)
     expect(actual.productFilename).toBe(executable)
     expect(actual.id).toBe(appId)
     expect(getWindowsInstallationDirName(actual, true)).toBe(executable)
-    // MacPackager uses productFilename for the bundle, binary and helpers,
-    // and productName for CFBundleName/CFBundleDisplayName.
+    // MacPackager uses productFilename for the bundle and main binary. Helpers
+    // follow sanitizedProductName and are resolved from the installed layout.
     expect(`${actual.productFilename}.app`).toBe(`${executable}.app`)
   })
   it('keeps the package, profiles and update repository independently stable', () => {
