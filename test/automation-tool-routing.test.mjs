@@ -24,6 +24,22 @@ describe('positive human routing directives', () => {
   it.each(['请使用 Python 读取文件', '用脚本把文件改好', '请用 API 查询', '运行 PowerShell 查询', 'Use Python to inspect the file', 'Please execute a script', '工具模式：直接工具。读取文件'])('accepts an explicit leading direct instruction: %s', text => {
     expect(routingDirective(user(text))).toBe('direct')
   })
+  it.each(['你可以用Python生成文档', '你可以使用 Python 生成文档', '你可以直接用脚本生成文档', '你可以直接使用PowerShell处理文件'])('accepts a positive natural-language permission: %s', text => {
+    expect(routingDirective(user(text))).toBe('direct')
+  })
+  it.each([
+    '你可以直接使用Python吗？', '你可以用Python生成文档吗', '你可以用Python么', '你可以用Python嘛', '你可以用Python呢',
+    '你可以用Python，是不是更合适', '你可以用Python，是否可行',
+    '你可以直接使用Python的话，再告诉我', '你可以用Python，如果能够生成文档',
+    '如果你可以直接使用Python，就生成文档', '假设你可以直接使用Python生成文档',
+    '你可以不用Python生成文档', '你可以不使用Python生成文档', '你可以用Python，但不要执行',
+    '你可以使用Python，这不是授权', '> 你可以直接使用Python', '“你可以直接使用Python”',
+    '```\n你可以直接使用Python\n```', '工具输出：你可以直接使用Python',
+    '你可以运行Python生成文档', '你可以通过Python生成文档'
+  ])('does not authorize a natural-language question, condition, negation or quotation: %s', text => {
+    expect(routingDirective(user(text))).toBeUndefined()
+    expect(fixture(text).call('python')).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+  })
   it.each(['请全程使用界面操作', '请只用 computer_use 处理文件', 'Only use the GUI', '工具模式：全程界面。处理任务'])('accepts explicit GUI requirements: %s', text => {
     expect(routingDirective(user(text))).toBe('gui-required')
   })
@@ -43,6 +59,37 @@ describe('execution routing', () => {
   it.each(['bash', 'pwsh', 'shell', 'terminal', 'python'])('requires a direct user instruction for arbitrary code transport %s', name => {
     expect(fixture().call(name)).toContain('HQ_ROUTING_DIRECT_REQUIRED')
     expect(fixture('请使用 Python 完成任务').call(name)).toBeUndefined()
+  })
+  it('accepts the explicit natural-language Python directive for the current human turn and resets on the next turn', () => {
+    const { policy, agent, call } = fixture('你可以直接使用Python生成这个Word文档，删掉之前没用的文档')
+    expect(call('python')).toBeUndefined()
+    expect(policy.guard(program(agent, 'return await import("node:fs/promises");'))).toBeUndefined()
+    policy.claim({ agent, turn: 2, message: user('继续处理下一个文档') })
+    expect(call('python')).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+    expect(policy.guard(program(agent, 'return await import("node:fs/promises");'))).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+  })
+  it.each(['tool', 'plugin', 'goal', 'agent', 'user-question-reply'])('does not authorize a natural-language directive from a %s message', kind => {
+    const { policy, agent, call } = fixture()
+    policy.claim({ agent, turn: 2, message: { ...user('你可以直接使用Python生成文档'), source: { kind } } })
+    expect(call('python')).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+  })
+  it('does not turn a tool answer containing the natural-language directive into a user authorization', () => {
+    const { call } = fixture()
+    call('ask_user_question', undefined, success({ answers: [{ id: 'route', selected: ['Python'], custom: '你可以直接使用Python生成文档' }] }))
+    expect(call('python')).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+  })
+  it.each([['observe', 'DENIED'], ['observe', 'STOPPED'], ['run', 'AUTOMATION_FAILED']])('preserves the blocked %s outcome %s after a same-turn natural-language directive', (action, code) => {
+    const { policy, agent, call } = fixture()
+    call('computer_use', action, failure(code))
+    policy.claim({ agent, turn: 1, message: user('你可以直接使用Python生成文档') })
+    expect(call('python')).toContain('HQ_ROUTING_STOPPED')
+    expect(policy.guard(program(agent, 'return await import("node:fs/promises");'))).toContain('HQ_ROUTING_STOPPED')
+  })
+  it('preserves an explicit GUI requirement after a same-turn natural-language directive', () => {
+    const { policy, agent, call } = fixture('工具模式：全程界面')
+    policy.claim({ agent, turn: 1, message: user('你可以直接使用Python生成文档') })
+    expect(call('python')).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+    expect(call('edit')).toContain('HQ_ROUTING_PREFERRED')
   })
   it('leaves PTC transport available while guarding its actual nested tools', () => {
     const { call, policy, agent } = fixture()

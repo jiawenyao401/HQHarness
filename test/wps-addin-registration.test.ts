@@ -58,6 +58,8 @@ describe('WPS Add-in registration', () => {
     const id = auth.wps.namelist
     expect(id).toMatch(/^[a-f0-9]{32}$/)
     expect(auth.wps[id]).toEqual({ enable: true, isload: true, md5: '', mode: 2, name: 'HuaqingDesktopWPS', path: `${baseUrl}/addins/wps/` })
+    expect(auth.et).toBeUndefined()
+    expect(auth.wpp).toBeUndefined()
     expect((await fs.readdir(directory)).sort()).toEqual(['authaddin.json', 'publish.xml'])
   })
 
@@ -117,6 +119,105 @@ describe('WPS Add-in registration', () => {
     expect(publish).toContain('name="ThirdParty"')
     expect(JSON.parse(await fs.readFile(join(directory, 'authaddin.json'), 'utf8'))).toEqual(JSON.parse(externalAuth))
     expect(await removeWpsAddins({ directory, platform: 'darwin' })).toEqual({ changed: false, files: [] })
+  })
+
+  it('removes WPS-generated ET/PPT/Writer authorizations, including disabled duplicate entries, without touching other state', async () => {
+    const directory = await seed()
+    await registerWpsAddins({ directory, baseUrl, platform: 'darwin' })
+    const etFirst = '1'.repeat(32)
+    const etSecond = '2'.repeat(32)
+    const etOther = '3'.repeat(32)
+    const wrongHost = '4'.repeat(32)
+    const wppOwned = '5'.repeat(32)
+    const wppOther = '6'.repeat(32)
+    const writerOwned = '7'.repeat(32)
+    const writerOther = '8'.repeat(32)
+    const foreignEt = { name: 'OtherET', enable: true, custom: { preserve: 1 } }
+    const wrongHostEntry = { name: 'HuaqingDesktopWPS', enable: false, custom: 'not owned by ET' }
+    const foreignWpp = { name: 'HuaqingDesktopWPP-extra', enable: true, custom: [1, 2] }
+    const foreignWriter = { name: 'OtherWriter', custom: 7 }
+    const auth = {
+      et: {
+        [etFirst]: { name: 'HuaqingDesktopET', enable: false, isload: false, mode: 2, md5: '' },
+        [etSecond]: { name: 'HuaqingDesktopET', enable: false, isload: false, mode: 2, md5: '' },
+        [etOther]: foreignEt,
+        [wrongHost]: wrongHostEntry,
+        namelist: `${etFirst};${etOther};${etFirst};;${wrongHost};`,
+        featureFlag: true,
+        metadata: { nestedName: 'HuaqingDesktopET', preserve: true }
+      },
+      wpp: {
+        [wppOwned]: { name: 'HuaqingDesktopWPP', enable: false, isload: false, mode: 2 },
+        [wppOther]: foreignWpp,
+        namelist: `${wppOwned};${wppOther}`,
+        unknown: ['preserve']
+      },
+      wps: {
+        [writerOwned]: { name: 'HuaqingDesktopWPS', enable: true, isload: true, mode: 2 },
+        [writerOther]: foreignWriter,
+        namelist: `${writerOther};${writerOwned}`
+      },
+      futureHost: { name: 'HuaqingDesktopET', arbitrary: [1, false] }
+    }
+    await fs.writeFile(join(directory, 'authaddin.json'), JSON.stringify(auth, null, 3) + '\n')
+    expect(await removeWpsAddins({ directory, platform: 'darwin' })).toEqual({
+      changed: true, files: [join(directory, 'publish.xml'), join(directory, 'authaddin.json')]
+    })
+    expect(JSON.parse(await fs.readFile(join(directory, 'authaddin.json'), 'utf8'))).toEqual({
+      et: {
+        [etOther]: foreignEt, [wrongHost]: wrongHostEntry,
+        namelist: `${etOther};;${wrongHost};`, featureFlag: true, metadata: auth.et.metadata
+      },
+      wpp: { [wppOther]: foreignWpp, namelist: wppOther, unknown: ['preserve'] },
+      wps: { [writerOther]: foreignWriter, namelist: writerOther },
+      futureHost: auth.futureHost
+    })
+    const publish = await fs.readFile(join(directory, 'publish.xml'), 'utf8')
+    expect(publish).not.toContain('HuaqingDesktop')
+    expect(publish).toContain('name="ThirdParty"')
+    const cleaned = await fs.readFile(join(directory, 'authaddin.json'), 'utf8')
+    expect(await removeWpsAddins({ directory, platform: 'darwin' })).toEqual({ changed: false, files: [] })
+    expect(await fs.readFile(join(directory, 'authaddin.json'), 'utf8')).toBe(cleaned)
+  })
+
+  it('removes owned ET entries without manufacturing absent host sections or namelists', async () => {
+    const directory = await temporaryDirectory()
+    const id = 'a'.repeat(32)
+    await fs.writeFile(join(directory, 'authaddin.json'), JSON.stringify({ et: { [id]: { name: 'HuaqingDesktopET', enable: false }, custom: 42 }, future: null }))
+    expect(await removeWpsAddins({ directory, platform: 'darwin' })).toEqual({ changed: true, files: [join(directory, 'authaddin.json')] })
+    expect(JSON.parse(await fs.readFile(join(directory, 'authaddin.json'), 'utf8'))).toEqual({ et: { custom: 42 }, future: null })
+    await expect(fs.stat(join(directory, 'publish.xml'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('leaves existing ET/PPT authorization and unknown fields intact during Writer registration', async () => {
+    const directory = await seed()
+    const auth = {
+      et: { ['1'.repeat(32)]: { name: 'HuaqingDesktopET', enable: false, isload: false, custom: 1 }, namelist: '1'.repeat(32), unknown: true },
+      wpp: { ['2'.repeat(32)]: { name: 'HuaqingDesktopWPP', enable: false, isload: false, custom: 2 }, namelist: '2'.repeat(32) },
+      wps: { other: { name: 'OtherWriter', custom: 3 }, namelist: 'other' },
+      unknown: { preserve: true }
+    }
+    await fs.writeFile(join(directory, 'authaddin.json'), JSON.stringify(auth))
+    await registerWpsAddins({ directory, baseUrl, platform: 'darwin' })
+    const after = JSON.parse(await fs.readFile(join(directory, 'authaddin.json'), 'utf8'))
+    expect(after.et).toEqual(auth.et)
+    expect(after.wpp).toEqual(auth.wpp)
+    expect(after.unknown).toEqual(auth.unknown)
+  })
+
+  it.each([
+    ['invalid-json', 'not json'], ['root-array', '[]'], ['root-null', 'null'],
+    ['et-array', '{"et":[]}'], ['wpp-null', '{"wpp":null}'], ['wps-string', '{"wps":"invalid"}'],
+    ['et-list-number', '{"et":{"namelist":7}}'], ['wpp-list-array', '{"wpp":{"namelist":[]}}'], ['wps-list-null', '{"wps":{"namelist":null}}']
+  ])('refuses damaged Mac auth during removal before changing publish.xml: %s', async (_label, auth) => {
+    const directory = await seed()
+    await registerWpsAddins({ directory, baseUrl, platform: 'darwin' })
+    const before = await fs.readFile(join(directory, 'publish.xml'), 'utf8')
+    await fs.writeFile(join(directory, 'authaddin.json'), auth)
+    await expect(removeWpsAddins({ directory, platform: 'darwin' })).rejects.toThrow('Invalid WPS')
+    expect(await fs.readFile(join(directory, 'publish.xml'), 'utf8')).toBe(before)
+    expect(await fs.readFile(join(directory, 'authaddin.json'), 'utf8')).toBe(auth)
+    expect((await fs.readdir(directory)).sort()).toEqual(['authaddin.json', 'publish.xml'])
   })
 
   it('does not create a missing directory when removing', async () => {

@@ -16,6 +16,33 @@ async function temporary(prefix) {
   directories.push(directory)
   return directory
 }
+const lf = text => text.replace(/\r\n/gu, '\n')
+const lineEnding = (text, ending) => lf(text).replace(/\n/gu, ending)
+async function replayFixture(patchEnding, packageEnding) {
+  const directory = await temporary('wps-patch-replay-')
+  const packageDirectory = join(directory, 'node_modules/@deepseek-ai/dsh')
+  await mkdir(join(packageDirectory, 'lib'), { recursive: true })
+  let manifest = lf(await readFile(resolve('@deepseek-ai/dsh/package.json'), 'utf8'))
+  // Establish the intended patched endpoint even on a working copy whose
+  // existing node_modules predates this change. Only these two copied files
+  // participate; neither the root checkout nor its Git metadata is changed.
+  if (!Object.hasOwn(JSON.parse(manifest).dependencies, 'hqharness-wps')) {
+    manifest = manifest.replace('    "hqharness-automation": "0.1.0",', '    "hqharness-automation": "0.1.0",\n    "hqharness-wps": "0.1.0",')
+  }
+  const bin = lf(await readFile(resolve('@deepseek-ai/dsh/lib/bin.js'), 'utf8'))
+  const patch = await readFile(join(process.cwd(), 'patches/@deepseek-ai+dsh+0.2.0-rc.2.patch'), 'utf8')
+  return { directory, packageDirectory, manifest: lineEnding(manifest, packageEnding), bin: lineEnding(bin, packageEnding), patch: lineEnding(patch, patchEnding) }
+}
+async function writeReplayFixture(fixture) {
+  // Windows Git checkout can use CRLF while npm extracts LF. Normalize only
+  // temporary text copies, preserving exact hunk headers, counts and context.
+  // The checked-out patch, installed files and Git configuration stay intact.
+  await writeFile(join(fixture.packageDirectory, 'package.json'), lf(fixture.manifest))
+  await writeFile(join(fixture.packageDirectory, 'lib/bin.js'), lf(fixture.bin))
+  const patch = join(fixture.directory, 'replay.patch')
+  await writeFile(patch, lf(fixture.patch))
+  return patch
+}
 
 describe('WPS installation and replay contracts', () => {
   it('includes WPS in the actual dsh installation resolution closure', async () => {
@@ -25,23 +52,28 @@ describe('WPS installation and replay contracts', () => {
     expect(entry?.scope).toBe('installation')
     expect(await realpath(entry.packageDir)).toBe(await realpath('node_modules/hqharness-wps'))
   })
-  it('replays the exact dsh patch headers without recount or repository mutations', async () => {
-    const directory = await temporary('wps-patch-replay-')
-    const packageDirectory = join(directory, 'node_modules/@deepseek-ai/dsh')
-    await mkdir(join(packageDirectory, 'lib'), { recursive: true })
-    let manifest = await readFile(resolve('@deepseek-ai/dsh/package.json'), 'utf8')
-    // Establish the intended patched endpoint even on a working copy whose
-    // existing node_modules predates this change. Only these two copied files
-    // participate; neither the root checkout nor its Git metadata is changed.
-    if (!Object.hasOwn(JSON.parse(manifest).dependencies, 'hqharness-wps')) {
-      manifest = manifest.replace('    "hqharness-automation": "0.1.0",', '    "hqharness-automation": "0.1.0",\n    "hqharness-wps": "0.1.0",')
+  it.each([
+    { checkout: 'LF', patchEnding: '\n', package: 'LF', packageEnding: '\n' },
+    { checkout: 'CRLF', patchEnding: '\r\n', package: 'LF', packageEnding: '\n' },
+    { checkout: 'LF', patchEnding: '\n', package: 'CRLF', packageEnding: '\r\n' },
+    { checkout: 'CRLF', patchEnding: '\r\n', package: 'CRLF', packageEnding: '\r\n' }
+  ])('replays exact dsh patch headers with $checkout checkout and $package package EOL without recount or repository mutations', async ({ patchEnding, packageEnding }) => {
+    const fixture = await replayFixture(patchEnding, packageEnding)
+    const patch = await writeReplayFixture(fixture)
+    for (const autoCrlf of ['false', 'true']) {
+      for (const args of [['--reverse', '--check'], ['--reverse'], ['--check'], []]) await run('git', ['-c', `core.autocrlf=${autoCrlf}`, 'apply', ...args, patch], { cwd: fixture.directory })
+      // apply may emit CRLF under core.autocrlf=true. Compare the entire text
+      // after the same EOL-only normalization, never ignoring other whitespace.
+      expect(lf(await readFile(join(fixture.packageDirectory, 'package.json'), 'utf8'))).toBe(lf(fixture.manifest))
+      expect(lf(await readFile(join(fixture.packageDirectory, 'lib/bin.js'), 'utf8'))).toBe(lf(fixture.bin))
     }
-    const bin = await readFile(resolve('@deepseek-ai/dsh/lib/bin.js'), 'utf8')
-    await writeFile(join(packageDirectory, 'package.json'), manifest)
-    await writeFile(join(packageDirectory, 'lib/bin.js'), bin)
-    const patch = join(process.cwd(), 'patches/@deepseek-ai+dsh+0.2.0-rc.2.patch')
-    for (const args of [['--reverse', '--check'], ['--reverse'], ['--check'], []]) await run('git', ['apply', ...args, patch], { cwd: directory })
-    expect(await readFile(join(packageDirectory, 'package.json'), 'utf8')).toBe(manifest)
-    expect(await readFile(join(packageDirectory, 'lib/bin.js'), 'utf8')).toBe(bin)
+  })
+  it('still rejects incorrect exact dsh patch hunk counts after newline normalization', async () => {
+    const fixture = await replayFixture('\r\n', '\n')
+    const corrupt = fixture.patch.replace('@@ -227,7 +227,8 @@', '@@ -227,7 +227,7 @@')
+    expect(corrupt).not.toBe(fixture.patch)
+    fixture.patch = corrupt
+    const patch = await writeReplayFixture(fixture)
+    await expect(run('git', ['-c', 'core.autocrlf=true', 'apply', '--reverse', '--check', patch], { cwd: fixture.directory })).rejects.toThrow()
   })
 })

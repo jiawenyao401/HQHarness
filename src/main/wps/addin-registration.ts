@@ -204,6 +204,35 @@ function editWriterAuth(text: string | null, baseUrl?: string): string | null {
   return JSON.stringify(parsed, null, 2) + '\n'
 }
 
+function removeOwnedAuth(text: string | null): string | null {
+  if (text === null) return null
+  let parsed: unknown
+  try { parsed = JSON.parse(text) } catch {
+    throw new Error('Invalid WPS authaddin.json; no registrations were changed')
+  }
+  if (!isRecord(parsed)) throw new Error('Invalid WPS authaddin.json; no registrations were changed')
+  const sections: { value: Record<string, unknown>; name: string }[] = []
+  for (const { host, name } of HOSTS) {
+    const value = parsed[host]
+    if (value === undefined) continue
+    if (!isRecord(value) || (value.namelist !== undefined && typeof value.namelist !== 'string')) {
+      throw new Error(`Invalid WPS ${host} authorization list; no registrations were changed`)
+    }
+    sections.push({ value, name })
+  }
+  let changed = false
+  for (const { value, name } of sections) {
+    // WPS creates ET/WPP authorization records itself, including disabled and
+    // unlisted duplicates. Removal owns only this host's exact product name.
+    const ids = Object.keys(value).filter(id => id !== 'namelist' && isRecord(value[id]) && value[id].name === name)
+    if (!ids.length) continue
+    for (const id of ids) delete value[id]
+    if (typeof value.namelist === 'string') value.namelist = value.namelist.split(';').filter(id => !ids.includes(id)).join(';')
+    changed = true
+  }
+  return changed ? JSON.stringify(parsed, null, 2) + '\n' : text
+}
+
 function sameIdentity(left: Stats, right: Stats): boolean {
   return left.dev === right.dev && left.ino === right.ino && left.size === right.size && left.mtimeMs === right.mtimeMs && left.mode === right.mode
 }
@@ -383,7 +412,9 @@ async function updateRegistrations(options: WpsAddinRegistrationOptions, baseUrl
     const authText = registryText(auth)
     // Parse both before staging or editing either live registry.
     const nextPublish = publishText === null && !baseUrl ? null : editPublish(publishText ?? '<?xml version="1.0" encoding="UTF-8"?>\n<jsplugins>\n</jsplugins>\n', baseUrl)
-    const nextAuth = options.platform === 'darwin' ? editWriterAuth(authText, baseUrl) : null
+    const nextAuth = options.platform === 'darwin'
+      ? baseUrl === undefined ? removeOwnedAuth(authText) : editWriterAuth(authText, baseUrl)
+      : null
     const changes: Change[] = []
     if (nextPublish !== null && nextPublish !== publishText) changes.push({ path: publishPath, before: publish, after: nextPublish })
     if (nextAuth !== null && nextAuth !== authText) changes.push({ path: authPath, before: auth, after: nextAuth })

@@ -48,6 +48,11 @@ export function routingDirective(message) {
   // Ambiguous exclusions must not widen the default route. This is a small
   // positive command grammar, not a classifier for general prose.
   if (/(?:不要|禁止|不能|不得|不允许|不可|别|以外|除外|而不是|不用|不使用|无需)|\b(?:not|never|without|except|instead)\b/iu.test(line)) return undefined
+  if (/^你可以(?:直接)?(?:使用|用)\s*(?:(?:Python|PowerShell|Bash|Shell|API)\b|脚本|命令行|终端)/iu.test(line)) {
+    // This permission prefix can also introduce a question or a condition.
+    if (/[?？]|(?:吗|么|嘛|呢|不)(?:[，,。.!！\s]|$)|(?:是不是|是否|能否|可否|如果|假如|假设|的话|只要|前提是|不是|并非|不代表|不等于|未授权|没有授权)/u.test(line)) return undefined
+    return 'direct'
+  }
   if (/^(?:工具模式\s*[:：]\s*直接工具|tool mode\s*:\s*direct)(?:\s|[。.!！]|$)/iu.test(line)
     || /^(?:请帮我|帮我|请|麻烦)?(?:直接)?(?:用|使用|通过|运行|执行)\s*(?:Python|PowerShell|Bash|Shell|API)\b/iu.test(line)
     || /^(?:请帮我|帮我|请|麻烦)?(?:直接)?(?:用|使用|通过|运行|执行)\s*(?:脚本|命令行|终端)/iu.test(line)
