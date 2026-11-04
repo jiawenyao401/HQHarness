@@ -9,6 +9,15 @@
       Do not volunteer internal model routing identifiers or local paths.
     personaSuffix: Your working directory is {{cwd}}.
 
+# Keep the Web UI orientation and shell URL without upstream checkout guidance.
+- id: web-runtime
+  config:
+    openBrowser: !!js ctx.webStartup.openBrowser
+    printUrl: true
+    surfaceContext: true
+    desktopSurface: true
+    trustedHosts: !!js ctx.webStartup.trustedHosts
+
 # Harness's runtime warnings and errors live only in an in-memory logger ring,
 # and session activation failures only reach the client. Bridge both to
 # stderr so harness.log keeps them. First, so it hears as much as it can.

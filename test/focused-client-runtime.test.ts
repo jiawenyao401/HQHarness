@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { expect, it } from 'vitest'
 import { HarnessRuntime } from '../src/main/runtime/harness-runtime'
@@ -11,12 +12,24 @@ import { projectRoot } from './patch-path'
 
 it.each(['web', SAFE_MODE_PROFILE])('boots %s without market modules and retains its bundled client surface', async (profile) => {
   const home = await mkdtemp(join(tmpdir(), 'hq-focused-runtime-'))
+  const source = join(projectRoot, profile === SAFE_MODE_PROFILE ? 'build/dsh-desktop-safe.patch.yml' : 'build/dsh-desktop.patch.yml')
+  const patch = join(home, 'desktop-test.patch.yml')
+  const request = join(home, 'identity-request.json')
+  const provider = pathToFileURL(join(projectRoot, 'test/fixtures/desktop-identity-provider.mjs')).href
+  await writeFile(patch, await readFile(source, 'utf8') + `
+- insert:
+    - id: desktop-identity-probe
+      name: ${JSON.stringify(provider)}
+      config:
+        output: ${JSON.stringify(request)}
+        workspace: ${JSON.stringify(home)}
+`)
   const runtime = new HarnessRuntime({
     dshEntryPath: join(projectRoot, 'node_modules/@deepseek-ai/dsh/lib/bin.js'),
     nodeEntryPath: join(projectRoot, 'build/harness-node-entry.mjs'),
     nodeExecutablePath: resolveTestNodeExecutable(),
-    dshPatchPath: join(projectRoot, 'build/dsh-desktop.patch.yml'),
-    dshSafePatchPath: join(projectRoot, 'build/dsh-desktop-safe.patch.yml'),
+    dshPatchPath: patch,
+    dshSafePatchPath: patch,
     dshHome: home,
     logPath: join(home, 'harness.log'),
     launchProcess: (executable, args, options) => spawn(executable, args, options),
@@ -30,6 +43,21 @@ it.each(['web', SAFE_MODE_PROFILE])('boots %s without market modules and retains
     const state = runtime.snapshot()
     expect(state.phase, state.logs.join('\n')).toBe('ready')
     if (!state.url || !state.authToken) throw new Error('Missing actual Harness endpoint')
+    await expect.poll(async () => {
+      try { return await readFile(request, 'utf8') }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        return ''
+      }
+    }, { timeout: 8_000 }).not.toBe('')
+    const captured = JSON.parse(await readFile(request, 'utf8')) as { model?: string; system?: unknown; error?: string }
+    expect(captured.error).toBeUndefined()
+    expect(captured.model).toBe('hq-private-routing-id-v1')
+    const system = JSON.stringify(captured.system)
+    expect(system).toContain('You are Huaqing Harness')
+    expect(system).toContain('through Huaqing Desktop')
+    expect(system).not.toContain('DeepSeek Harness')
+    expect(system).not.toContain('hq-private-routing-id-v1')
     const login = await fetch(`${state.url}/?token=${encodeURIComponent(state.authToken)}`, { redirect: 'manual' })
     const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
     const html = await (await fetch(state.url, { headers: { Cookie: cookie } })).text()

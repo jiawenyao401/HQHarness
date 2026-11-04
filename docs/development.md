@@ -108,7 +108,7 @@ After configuring your own release repository and signing credentials, formal re
 ### Desktop assistant identity
 
 The normal and Safe Mode patches configure the same Huaqing Harness identity
-using the pinned system-prompt service. The upstream Web prompt calls the
-surface the current application's Web GUI. This keeps desktop branding out of
-provider/model identifiers and custom preset personas. Existing workspaces and
+using the pinned system-prompt service. The desktop Web surface describes
+Huaqing Desktop and omits source-checkout guidance. Provider and model routing
+identifiers, and explicit custom preset personas, retain their own semantics. Existing workspaces and
 recorded messages are retained on upgrade.
