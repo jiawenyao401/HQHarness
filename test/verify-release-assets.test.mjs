@@ -6,6 +6,10 @@ import { stringify } from 'yaml'
 import { describe, expect, it } from 'vitest'
 import { verifyReleaseAssets } from '../scripts/verify-release-assets.mjs'
 
+const windowsBytes = Buffer.from('MZ-win')
+const sha256 = createHash('sha256').update(windowsBytes).digest('hex')
+const windowsName = `Huaqing-Desktop-1.2.3-x64-${sha256}-20261104T080000Z.exe`
+
 const minimumBytes = { dmg: 1, zip: 1, exe: 1, blockmap: 1, yml: 1 }
 
 async function digest(content) {
@@ -20,13 +24,13 @@ async function writeFixture(root, name, content) {
 async function createFixture(root) {
   const armZip = await writeFixture(root, 'hqharness-mac-arm64.zip', Buffer.from('PK-arm'))
   const x64Zip = await writeFixture(root, 'hqharness-mac-x64.zip', Buffer.from('PK-x64'))
-  const windows = await writeFixture(root, 'hqharness-windows-x64-setup.exe', Buffer.from('MZ-win'))
+  const windows = await writeFixture(root, windowsName, windowsBytes)
   await Promise.all([
     writeFile(path.join(root, 'hqharness-mac-arm64.dmg'), Buffer.concat([Buffer.alloc(512), Buffer.from('koly')])),
     writeFile(path.join(root, 'hqharness-mac-x64.dmg'), Buffer.concat([Buffer.alloc(512), Buffer.from('koly')])),
     writeFile(path.join(root, 'hqharness-mac-arm64.zip.blockmap'), 'blockmap'),
     writeFile(path.join(root, 'hqharness-mac-x64.zip.blockmap'), 'blockmap'),
-    writeFile(path.join(root, 'hqharness-windows-x64-setup.exe.blockmap'), 'blockmap'),
+    writeFile(path.join(root, `${windowsName}.blockmap`), 'blockmap'),
     writeFile(path.join(root, 'latest-mac.yml'), stringify({ version: '1.2.3', files: [armZip, x64Zip] })),
     writeFile(path.join(root, 'latest.yml'), stringify({ version: '1.2.3', files: [windows] }))
   ])
@@ -37,7 +41,7 @@ describe('release asset verification', () => {
     const root = await mkdtemp(path.join(tmpdir(), 'hqharness-release-assets-'))
     try {
       await createFixture(root)
-      for (const name of ['latest.yml', 'latest-mac.yml', 'hqharness-mac-arm64.zip.blockmap', 'hqharness-mac-x64.zip.blockmap', 'hqharness-windows-x64-setup.exe.blockmap']) {
+      for (const name of ['latest.yml', 'latest-mac.yml', 'hqharness-mac-arm64.zip.blockmap', 'hqharness-mac-x64.zip.blockmap', `${windowsName}.blockmap`]) {
         await rm(path.join(root, name))
       }
       await expect(verifyReleaseAssets(root, '1.2.3', { minimumBytes, requireUpdates: false })).resolves.toBeUndefined()
@@ -84,7 +88,7 @@ describe('release asset verification', () => {
     const root = await mkdtemp(path.join(tmpdir(), 'dsh-release-assets-'))
     try {
       await createFixture(root)
-      await writeFile(path.join(root, 'hqharness-windows-x64-setup.exe'), 'not-an-exe')
+      await writeFile(path.join(root, windowsName), 'not-an-exe')
       await expect(
         verifyReleaseAssets(root, '1.2.3', { minimumBytes })
       ).rejects.toThrow('is not a PE executable')
@@ -103,7 +107,7 @@ describe('release asset verification', () => {
           version: '1.2.3',
           files: [
             {
-              url: 'hqharness-windows-x64-setup.exe',
+              url: windowsName,
               size: 6,
               sha512: 'wrong-digest'
             }

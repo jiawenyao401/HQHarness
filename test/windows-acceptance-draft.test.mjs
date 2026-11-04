@@ -10,7 +10,10 @@ const roots = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
 const env = { GITHUB_EVENT_NAME: 'workflow_dispatch', HQHARNESS_DRAFT_DELIVERY: 'true',
   GITHUB_REPOSITORY: 'owner/private-harness', GITHUB_SHA: 'a'.repeat(40), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2' }
-const file = 'hqharness-0.1.3-win-x64-acceptance.exe'
+const installer = Buffer.from('MZ acceptance installer fixture')
+const sha256 = createHash('sha256').update(installer).digest('hex')
+const version = '0.1.13'
+const file = `Huaqing-Desktop-${version}-x64-${sha256}-20261104T080000Z.exe`
 const logNames = ['browser-local-execution.log', 'windows-uia-local-execution.log']
 
 async function fixture() {
@@ -18,8 +21,7 @@ async function fixture() {
   roots.push(root)
   await mkdir(path.join(root, 'dist'))
   await mkdir(path.join(root, '.build/automation-acceptance'), { recursive: true })
-  const installer = Buffer.from('MZ acceptance installer fixture')
-  const manifest = { source: env.GITHUB_SHA, signed: false, file, sha256: createHash('sha256').update(installer).digest('hex') }
+  const manifest = { source: env.GITHUB_SHA, signed: false, file, sha256, version }
   await writeFile(path.join(root, 'dist', file), installer)
   await writeFile(path.join(root, 'dist/windows-acceptance.json'), '\uFEFF' + JSON.stringify(manifest))
   for (const name of logNames) await writeFile(path.join(root, '.build/automation-acceptance', name), 'native acceptance passed')

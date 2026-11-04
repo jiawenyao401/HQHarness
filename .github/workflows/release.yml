@@ -685,8 +685,8 @@ jobs:
           name: windows-x64
           retention-days: 7
           path: |
-            ${{ runner.temp }}/hqharness-windows-${{ github.run_id }}/release/hqharness-windows-x64-setup.exe
-            ${{ runner.temp }}/hqharness-windows-${{ github.run_id }}/release/hqharness-windows-x64-setup.exe.blockmap
+            ${{ runner.temp }}/hqharness-windows-${{ github.run_id }}/release/Huaqing-Desktop-*.exe
+            ${{ runner.temp }}/hqharness-windows-${{ github.run_id }}/release/Huaqing-Desktop-*.exe.blockmap
             ${{ runner.temp }}/hqharness-windows-${{ github.run_id }}/release/latest.yml
           compression-level: 0
           if-no-files-found: error
@@ -715,8 +715,10 @@ jobs:
           HQHARN_WINDOWS_PUBLISHER_NAME: ${{ vars.HQHARN_WINDOWS_PUBLISHER_NAME }}
         shell: pwsh
         run: |
+          $installers = @(Get-ChildItem signed-windows -File -Filter 'Huaqing-Desktop-*.exe')
+          if ($installers.Count -ne 1) { throw 'Expected exactly one final Windows installer.' }
           ./scripts/smoke-signed-windows-installer.ps1 `
-            -Installer 'signed-windows/hqharness-windows-x64-setup.exe' `
+            -Installer $installers[0].FullName `
             -PublisherName $env:HQHARN_WINDOWS_PUBLISHER_NAME
 
   smoke-existing-signed-windows:
@@ -740,8 +742,13 @@ jobs:
           HQHARN_WINDOWS_PUBLISHER_NAME: ${{ vars.HQHARN_WINDOWS_PUBLISHER_NAME }}
         shell: pwsh
         run: |
+          $installers = @(Get-ChildItem signed-windows -File -Filter 'Huaqing-Desktop-*.exe')
+          if ($installers.Count -eq 0) {
+            $installers = @(Get-ChildItem signed-windows -File -Filter 'hqharness-windows-x64-setup.exe')
+          }
+          if ($installers.Count -ne 1) { throw 'Expected exactly one final Windows installer.' }
           ./scripts/smoke-signed-windows-installer.ps1 `
-            -Installer 'signed-windows/hqharness-windows-x64-setup.exe' `
+            -Installer $installers[0].FullName `
             -PublisherName $env:HQHARN_WINDOWS_PUBLISHER_NAME
 
   publish:

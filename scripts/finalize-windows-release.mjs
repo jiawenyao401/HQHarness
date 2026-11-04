@@ -1,57 +1,71 @@
 import { createHash } from 'node:crypto'
-import { readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { basename, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { parseWindowsInstallerName, sha256File, STAGED_WINDOWS_INSTALLER, windowsInstallerName } from './windows-installer-name.mjs'
 
 const require = createRequire(import.meta.url)
 const { buildBlockMap } = require('app-builder-lib/out/targets/blockmap/blockmap')
 
-async function findInstaller(releaseDir) {
-  const entries = await readdir(releaseDir, { withFileTypes: true })
-  const installers = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.exe'))
-    .map((entry) => join(releaseDir, entry.name))
-  if (installers.length !== 1) {
-    throw new Error(`Expected exactly one Windows installer, found ${installers.length}.`)
-  }
-  return installers[0]
-}
-
 async function sha512(file) {
-  return createHash('sha512').update(await readFile(file)).digest('base64')
+  const hash = createHash('sha512')
+  for await (const chunk of createReadStream(file)) hash.update(chunk)
+  return hash.digest('base64')
 }
 
-async function finalizeRelease(releaseDir, version) {
-  const installer = await findInstaller(releaseDir)
-  const blockmap = `${installer}.blockmap`
-  await rm(blockmap, { force: true })
-  const updateInfo = await buildBlockMap(installer, 'gzip', blockmap)
-  const fileStat = await stat(installer)
-  const digest = await sha512(installer)
-  if (updateInfo.size !== fileStat.size || updateInfo.sha512 !== digest) {
-    throw new Error('Generated update metadata does not match the signed installer.')
+export async function finalizeRelease(releaseDir, version, date = new Date()) {
+  const files = (await readdir(releaseDir, { withFileTypes: true }))
+    .filter(entry => entry.isFile()).map(entry => entry.name)
+  const staged = files.includes(STAGED_WINDOWS_INSTALLER)
+  const branded = files.filter(name => parseWindowsInstallerName(name)?.version === version)
+  if (!staged && branded.length !== 1) {
+    throw new Error(`Expected a staged Windows installer or one completed installer for ${version}.`)
   }
 
-  const filename = basename(installer)
-  const metadata = [
-    `version: ${version}`,
-    'files:',
-    `  - url: ${JSON.stringify(filename)}`,
-    `    sha512: ${digest}`,
-    `    size: ${fileStat.size}`,
-    `path: ${JSON.stringify(filename)}`,
-    `sha512: ${digest}`,
-    `releaseDate: ${JSON.stringify(new Date().toISOString())}`,
-    ''
-  ].join('\n')
-  await writeFile(join(releaseDir, 'latest.yml'), metadata, 'utf8')
-  return { installer, blockmap }
+  const input = join(releaseDir, staged ? STAGED_WINDOWS_INSTALLER : branded[0])
+  const digest256 = await sha256File(input)
+  const filename = staged ? windowsInstallerName(version, digest256, date) : basename(input)
+  if (parseWindowsInstallerName(filename)?.sha256 !== digest256) {
+    throw new Error('Windows installer SHA-256 does not match its filename.')
+  }
+  const installer = join(releaseDir, filename)
+  const blockmap = `${installer}.blockmap`
+  const fileStat = await stat(input)
+  const digest512 = await sha512(input)
+  const temporaryBlockmap = `${blockmap}.tmp`
+  const metadataPath = join(releaseDir, 'latest.yml')
+  const temporaryMetadata = `${metadataPath}.tmp`
+  try {
+    const updateInfo = await buildBlockMap(input, 'gzip', temporaryBlockmap)
+    if (updateInfo.size !== fileStat.size || updateInfo.sha512 !== digest512) {
+      throw new Error('Generated update metadata does not match the final installer.')
+    }
+    await writeFile(temporaryMetadata, [
+      `version: ${version}`,
+      'files:',
+      `  - url: ${JSON.stringify(filename)}`,
+      `    sha512: ${digest512}`,
+      `    size: ${fileStat.size}`,
+      `path: ${JSON.stringify(filename)}`,
+      `sha512: ${digest512}`,
+      `releaseDate: ${JSON.stringify(date.toISOString())}`,
+      ''
+    ].join('\n'), 'utf8')
+    if (staged) await rename(input, installer)
+    await rename(temporaryBlockmap, blockmap)
+    await rename(temporaryMetadata, metadataPath)
+    if (staged) await rm(`${input}.blockmap`, { force: true })
+    return { installer, blockmap }
+  } finally {
+    await Promise.all([rm(temporaryBlockmap, { force: true }), rm(temporaryMetadata, { force: true })])
+  }
 }
 
-const [releaseDirArg, version] = process.argv.slice(2)
-if (!releaseDirArg || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version ?? '')) {
-  throw new Error('Usage: finalize-windows-release.mjs <release-dir> <semver>')
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const [releaseDir = 'dist', versionArg] = process.argv.slice(2)
+  const version = versionArg ?? JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version
+  const result = await finalizeRelease(resolve(releaseDir), version)
+  console.log(`Finalized Windows installer metadata for ${basename(result.installer)}.`)
 }
-
-const result = await finalizeRelease(resolve(releaseDirArg), version)
-console.log(`Finalized signed installer metadata for ${basename(result.installer)}.`)

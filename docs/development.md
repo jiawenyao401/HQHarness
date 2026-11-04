@@ -104,3 +104,11 @@ After configuring your own release repository and signing credentials, formal re
 - Preserve unrelated worktree changes.
 - Keep temporary research, local reports, and internal working documents under the ignored `doc/` directory.
 - Update all localized README files when changing user-visible facts.
+
+### Desktop assistant identity
+
+The normal and Safe Mode patches configure the same Huaqing Harness identity
+using the pinned system-prompt service. The upstream Web prompt calls the
+surface the current application's Web GUI. This keeps desktop branding out of
+provider/model identifiers and custom preset personas. Existing workspaces and
+recorded messages are retained on upgrade.

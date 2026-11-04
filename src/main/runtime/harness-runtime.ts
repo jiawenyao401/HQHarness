@@ -529,7 +529,7 @@ export class HarnessRuntime {
       )
     }
     this.writeLog(`[desktop] endpoint ${url}`)
-    this.setState('starting', 'Starting DeepSeek Harness…')
+    this.setState('starting', `Starting ${PRODUCT_NAME}…`)
 
     const shellEnvironment = await prewarmShellEnvironment()
     let child: HarnessChildProcess

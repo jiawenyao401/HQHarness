@@ -61,14 +61,14 @@ jobs:
         run: node scripts/automation-consent-smoke.mjs
       - name: Build unsigned acceptance installer on Windows
         shell: pwsh
-        run: npm run package:win -- '--config.nsis.artifactName=hqharness-${version}-${os}-${arch}-acceptance.${ext}'
+        run: npm run package:win
       - name: Verify SDK and real Agent tools from the actual packaged dependency closure
         shell: pwsh
         run: node scripts/automation-native-package-smoke.mjs 'dist/win-unpacked/HQHarness.exe' 'dist/win-unpacked/resources/app.asar'
       - name: Record exact artifact identity and outstanding manual acceptance
         shell: pwsh
         run: |
-          $installer = @(Get-ChildItem dist -File -Filter '*-acceptance.exe')
+          $installer = @(Get-ChildItem dist -File -Filter 'Huaqing-Desktop-*.exe')
           if ($installer.Count -ne 1) { throw 'Expected exactly one acceptance installer.' }
           $installer = $installer[0]
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
@@ -113,7 +113,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           path: |
-            dist/*-acceptance.exe
+            dist/Huaqing-Desktop-*.exe
             dist/windows-acceptance.json
       - name: Preserve native automation acceptance logs
         if: ${{ always() && !inputs.draft_delivery }}

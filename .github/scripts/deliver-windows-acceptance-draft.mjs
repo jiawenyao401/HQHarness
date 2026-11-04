@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
 import { appendFile, lstat, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { parseWindowsInstallerName, sha256File } from '../../scripts/windows-installer-name.mjs'
 
 const runGh = args => execFileSync('gh', args, { encoding: 'utf8' })
 
@@ -30,12 +29,12 @@ export async function deliverWindowsAcceptanceDraft(root, env = process.env, gh 
 
   const manifestPath = path.join(root, 'dist/windows-acceptance.json')
   const manifest = JSON.parse((await readFile(manifestPath, 'utf8')).replace(/^\uFEFF/, ''))
-  const installers = (await readdir(path.join(root, 'dist'))).filter(name => name.endsWith('-acceptance.exe'))
-  if (installers.length !== 1 || manifest.file !== installers[0] ||
-      !/^hqharness-[\w.+-]+-win-x64-acceptance\.exe$/.test(manifest.file ?? '')) {
-    throw new Error('Expected exactly one Windows x64 acceptance installer matching the manifest.')
+  const installers = (await readdir(path.join(root, 'dist'))).filter(name => /\.exe$/i.test(name))
+  const identity = parseWindowsInstallerName(manifest.file)
+  if (installers.length !== 1 || manifest.file !== installers[0] || !identity || identity.version !== manifest.version) {
+    throw new Error('Expected exactly one named Windows x64 acceptance installer matching the manifest.')
   }
-  if (manifest.source !== source || manifest.signed !== false || !/^[a-f0-9]{64}$/.test(manifest.sha256 ?? '')) {
+  if (manifest.source !== source || manifest.signed !== false || identity.sha256 !== manifest.sha256) {
     throw new Error('Acceptance manifest must identify this source commit, unsigned installer and SHA-256.')
   }
   const installerPath = path.join(root, 'dist', manifest.file)
@@ -47,9 +46,7 @@ export async function deliverWindowsAcceptanceDraft(root, env = process.env, gh 
     if (!stat.isFile() || stat.size === 0) throw new Error(`Expected a nonempty regular delivery file: ${file}`)
     return { name: path.basename(file), size: stat.size }
   }))
-  const hash = createHash('sha256')
-  for await (const chunk of createReadStream(installerPath)) hash.update(chunk)
-  if (hash.digest('hex') !== manifest.sha256) throw new Error('Installer SHA-256 does not match the acceptance manifest.')
+  if (await sha256File(installerPath) !== manifest.sha256) throw new Error('Installer SHA-256 does not match the acceptance manifest.')
 
   const tag = `acceptance-windows-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`
   // No edit/publish path: every attempt creates a new private draft and retains

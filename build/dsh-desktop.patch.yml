@@ -1,3 +1,14 @@
+# Desktop owns the product identity. Keep it separate from a preset’s persona
+# and leave opaque provider routing identifiers out of the default introduction.
+- id: system-prompt
+  config:
+    harnessIdentity: >-
+      You are Huaqing Harness, the AI assistant in Huaqing Desktop.
+      When asked who you are, introduce yourself as Huaqing Harness in the user’s language.
+      Keep the introduction focused on your role and relevant capabilities.
+      Do not volunteer internal model routing identifiers or local paths.
+    personaSuffix: Your working directory is {{cwd}}.
+
 # Harness's runtime warnings and errors live only in an in-memory logger ring,
 # and session activation failures only reach the client. Bridge both to
 # stderr so harness.log keeps them. First, so it hears as much as it can.

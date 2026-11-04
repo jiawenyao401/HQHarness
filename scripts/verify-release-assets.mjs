@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { open, readFile, stat } from 'node:fs/promises'
+import { open, readdir, readFile, stat } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
+import { parseWindowsInstallerName, sha256File, STAGED_WINDOWS_INSTALLER } from './windows-installer-name.mjs'
 
 const brand = JSON.parse(await readFile(new URL('../brand.config.json', import.meta.url), 'utf8'))
 const REQUIRED_ASSETS = [
@@ -11,12 +12,10 @@ const REQUIRED_ASSETS = [
   'hqharness-mac-arm64.zip',
   'hqharness-mac-x64.dmg',
   'hqharness-mac-x64.zip',
-  'hqharness-windows-x64-setup.exe',
 ]
 const UPDATE_ASSETS = [
   'hqharness-mac-arm64.zip.blockmap',
   'hqharness-mac-x64.zip.blockmap',
-  'hqharness-windows-x64-setup.exe.blockmap',
   'latest-mac.yml',
   'latest.yml'
 ]
@@ -101,13 +100,24 @@ export async function verifyReleaseAssets(releaseDir, version, options = {}) {
   const root = resolve(releaseDir)
   const minimumBytes = { ...DEFAULT_MINIMUM_BYTES, ...options.minimumBytes }
 
+  const entries = await readdir(root)
+  const installers = entries.filter(name => parseWindowsInstallerName(name))
+  const legacyInstaller = options.allowLegacyWindowsName && entries.includes(STAGED_WINDOWS_INSTALLER)
+  if (installers.length > 1 || (installers.length === 1 && entries.includes(STAGED_WINDOWS_INSTALLER))) {
+    throw new Error('Expected exactly one final Windows release installer.')
+  }
+  const installer = installers[0] ?? (legacyInstaller ? STAGED_WINDOWS_INSTALLER : undefined)
+  if (!installer) throw new Error('Missing required release asset: Huaqing Desktop Windows x64 installer')
+  const identity = parseWindowsInstallerName(installer)
+  if (identity && identity.version !== version) throw new Error(`Windows installer does not identify release ${version}`)
+
   const requireUpdates = options.requireUpdates ?? Boolean(brand.updateBaseUrl)
   const availableUpdateAssets = []
-  for (const name of UPDATE_ASSETS) {
+  for (const name of [...UPDATE_ASSETS, `${installer}.blockmap`]) {
     const exists = await stat(join(root, name)).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error })
     if (requireUpdates || exists) availableUpdateAssets.push(name)
   }
-  for (const name of [...REQUIRED_ASSETS, ...availableUpdateAssets]) {
+  for (const name of [...REQUIRED_ASSETS, installer, ...availableUpdateAssets]) {
     const kind = assetKind(name)
     const file = join(root, name)
     const fileStat = await stat(file).catch(() => undefined)
@@ -118,17 +128,20 @@ export async function verifyReleaseAssets(releaseDir, version, options = {}) {
     await assertFileHeader(file, kind, fileStat.size)
   }
 
-  if (availableUpdateAssets.includes('latest.yml')) await assertUpdateEntry(root, 'latest.yml', version, 'hqharness-windows-x64-setup.exe')
+  if (identity && await sha256File(join(root, installer)) !== identity.sha256) {
+    throw new Error('Windows installer SHA-256 does not match its filename')
+  }
+  if (availableUpdateAssets.includes('latest.yml')) await assertUpdateEntry(root, 'latest.yml', version, installer)
   if (availableUpdateAssets.includes('latest-mac.yml')) await assertUpdateEntry(root, 'latest-mac.yml', version, 'hqharness-mac-arm64.zip')
   if (availableUpdateAssets.includes('latest-mac.yml')) await assertUpdateEntry(root, 'latest-mac.yml', version, 'hqharness-mac-x64.zip')
 }
 
 async function main() {
-  const [releaseDir, version] = process.argv.slice(2)
+  const [releaseDir, version, option] = process.argv.slice(2)
   if (!releaseDir || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version ?? '')) {
     throw new Error('Usage: node scripts/verify-release-assets.mjs <release-dir> <semver>')
   }
-  await verifyReleaseAssets(releaseDir, version)
+  await verifyReleaseAssets(releaseDir, version, { allowLegacyWindowsName: option === '--allow-legacy-windows-name' })
   console.log(`Verified release assets for ${version}.`)
 }
 
