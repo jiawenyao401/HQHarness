@@ -75,9 +75,10 @@ function writer(body = 'alpha target omega\r', name = 'sample.docx') {
   const doc = base(name, '/tmp/' + name)
   let value = body
   doc.writes = 0
-  doc.Content = { Start: 0, get Text() { return value } }
+  doc.Content = { Start: 0, get End() { return value.length }, get Text() { return value } }
   doc.change = (next) => { value = next; doc.Saved = false }
   doc.Range = (start, end) => ({
+    Start: start, End: end,
     get Text() { return value.slice(start, end) },
     set Text(replacement) {
       doc.writes += 1
@@ -441,6 +442,17 @@ describe('WPS snapshot validation and Writer changes', () => {
     const result = adapter.execute({ ...replace, oldText: 'target target' })
     expect(result).toMatchObject({ snapshot: 'next-1', completed: 1, text: 'xx new\r' })
     expect(errorFrom(() => adapter.execute(replace))).toMatchObject({ code: 'STALE_SNAPSHOT' })
+  })
+
+  it('writes multiline minutes into a blank Writer document without removing the final paragraph mark', () => {
+    const doc = writer('\r')
+    const { adapter } = runtime({ Documents: collection([doc]) }, 'wps')
+    const key = adapter.documents()[0].key
+    adapter.execute({ action: 'inspect', key, snapshot: 'read-1' })
+    const write = { action: 'writer_append', key, snapshot: 'read-1', nextSnapshot: 'write-1', text: '会议主题\n决定：周五提交\r\n行动项：整理资料' }
+    expect(adapter.execute(write)).toMatchObject({ text: '会议主题\r决定：周五提交\r行动项：整理资料\r', snapshot: 'write-1', completed: 1 })
+    expect(doc.writes).toBe(1)
+    expect(errorFrom(() => adapter.execute(write))).toMatchObject({ code: 'STALE_SNAPSHOT' })
   })
 
   it('rejects unverified Unicode range offsets and truncated Writer mutations before writing', () => {

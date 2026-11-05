@@ -46,6 +46,12 @@ export class DesktopWpsService {
       connectedDocuments: this.connection?.documents().length ?? 0, connectedComponents: this.connection?.components() ?? [], frozenDocuments: this.documents?.frozenDocuments ?? 0, needsWpsRestart: this.registered && !this.connection?.components().length,
       ...(this.startupError ? { error: this.startupError } : {}) }
   }
+  private connectionGuidance(status: WpsStatus): string | undefined {
+    if (status.connectedDocuments) return
+    if (!status.registered) return 'WPS Add-in is not enabled. Save and fully exit WPS. In Huaqing Desktop, open Settings → Built-in Plugins → WPS Office and choose Enable WPS connection. Reopen WPS and confirm loading the HuaqingDesktop Add-in if prompted.'
+    if (!status.connectedComponents.length) return 'The WPS Add-in is registered but has not connected. Reopen WPS, confirm loading the HuaqingDesktop Add-in if prompted, and check the connection in Settings → Built-in Plugins → WPS Office.'
+    return 'WPS is connected. Open a local document in WPS and then list connected documents again.'
+  }
   environment(): NodeJS.ProcessEnv {
     this.stop(); this.token = randomBytes(32).toString('hex')
     return this.server ? { HQHARNESS_WPS_URL: `${this.origin}/mcp`, HQHARNESS_WPS_TOKEN: this.token } : {}
@@ -262,7 +268,12 @@ export class DesktopWpsService {
           const meta = validateWpsCallMeta(ctx.mcpReq._meta?.huaqing)
           if (!this.documents) throw new WpsError('WPS_UNAVAILABLE', 'The local WPS connector is unavailable')
           const result = await this.documents.execute(operation, meta, AbortSignal.any([ctx.mcpReq.signal, controller.signal]))
-          const value = operation.action === 'status' ? { ...result, ...this.status() } : result
+          let value = result
+          if (operation.action === 'status' || operation.action === 'documents' && Array.isArray(result.documents) && !result.documents.length) {
+            const status = this.status()
+            const guidance = this.connectionGuidance(status)
+            value = { ...result, ...(operation.action === 'status' ? status : {}), ...(guidance ? { guidance } : {}) }
+          }
           return { content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value }
         } catch (error) {
           const failure = error instanceof WpsError ? { code: error.code, message: error.message, outcome: error.outcome, ...(error.completed === undefined ? {} : { completed: error.completed }), ...(error.causeCode ? { causeCode: error.causeCode } : {}), ...(error.diagnostic ? { diagnostic: error.diagnostic } : {}) }

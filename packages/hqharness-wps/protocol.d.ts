@@ -5,7 +5,7 @@ export declare const WPS_MAX_CELLS: 1000
 export declare const WPS_MAX_FORMULA_LENGTH: 4096
 export declare const WPS_FORMULA_FUNCTIONS: readonly string[]
 export declare const WPS_READ_ACTIONS: readonly ['status', 'documents', 'inspect', 'sheet_read', 'recover']
-export declare const WPS_WRITE_ACTIONS: readonly ['sheet_write', 'writer_replace', 'slide_text', 'save']
+export declare const WPS_WRITE_ACTIONS: readonly ['sheet_write', 'writer_replace', 'writer_append', 'slide_text', 'save']
 export declare const WPS_INPUT_SCHEMA: Record<string, unknown>
 export type WpsScalar = string | number | boolean | null
 export type WpsMatrix = WpsScalar[][]
@@ -15,6 +15,7 @@ export type WpsOperation =
   | { action: 'sheet_read'; key: string; sheet: string; range: string }
   | ({ action: 'sheet_write'; key: string; snapshot: string; sheet: string; range: string } & ({ values: WpsMatrix; formulas?: never } | { formulas: string[][]; values?: never }))
   | { action: 'writer_replace'; key: string; snapshot: string; oldText: string; replaceText: string }
+  | { action: 'writer_append'; key: string; snapshot: string; text: string }
   | { action: 'slide_text'; key: string; snapshot: string; slideId: number; shapeId: number; text: string }
   | { action: 'save'; key: string; snapshot: string }
 export interface WpsPolicy { mode: 'read-only' | 'workspace-write' | 'danger-full-access'; workspaceRoot: string }

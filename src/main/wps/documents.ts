@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { copyFile, mkdir, readFile, realpath, readdir, stat, open, rename } from 'node:fs/promises'
 import { isAbsolute, join, normalize } from 'node:path'
-import { readWpsFailureDetails, type WpsOperation, type WpsCallMeta } from '../../../packages/hqharness-wps/protocol.js'
+import { readWpsFailureDetails, WPS_WRITE_ACTIONS, type WpsOperation, type WpsCallMeta } from '../../../packages/hqharness-wps/protocol.js'
 import { WpsError, type WpsTarget, type WpsDocument } from './connection'
 
 interface Bridge {
@@ -18,7 +18,7 @@ export interface WpsConsent {
 }
 interface Handle { owner: string; target: WpsTarget; identity: string; aliases: string[] }
 interface Frame { owner: string; key: string; peer: string; expires: number; disk?: string }
-const mutations = new Set(['sheet_write', 'writer_replace', 'slide_text', 'save'])
+const mutations: ReadonlySet<WpsOperation['action']> = new Set(WPS_WRITE_ACTIONS)
 const hash = (value: string | Buffer): string => createHash('sha256').update(value).digest('hex')
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const folded = (path: string): string => process.platform === 'win32' ? normalize(path).toLowerCase() : normalize(path)

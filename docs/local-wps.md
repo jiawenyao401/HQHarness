@@ -20,6 +20,7 @@ Huaqing Desktop 的内置 `hqharness-wps` 插件通过本机 MCP 服务连接 WP
 | `inspect` | Writer 正文片段、表格工作表元数据、演示文本形状；截断结果明确标记 |
 | `sheet_read` / `sheet_write` | 明确工作表及矩形 A1 区域，每次最多 1000 格；值与公式分开，写前核对原值，写后回读 |
 | `writer_replace` | 替换已观察正文中唯一匹配的文字；不操作页眉、批注等其他 story |
+| `writer_append` | 填写空白 Writer 正文或在正文结尾追加纯文本，保留已有内容和末段标记，写入后回读 |
 | `slide_text` | 通过已观察的 SlideID 与 Shape.Id 修改文字；不按当前选中形状重定向 |
 | `save` | 保存绑定文档当前本机路径，每次单独确认，先备份磁盘原件；不接收任意输出路径 |
 | `recover` | 对未确认结果重新读取，须由用户在原生对话框明确确认；不会重放旧修改 |

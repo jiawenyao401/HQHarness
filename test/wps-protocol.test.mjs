@@ -33,6 +33,7 @@ describe('finite WPS protocol', () => {
       { action: 'sheet_write', key: 'document', snapshot: 'snapshot', sheet: '数据', range: 'A1:B2', values: [[null, 1], ['text', true]] },
       { action: 'sheet_write', key: 'document', snapshot: 'snapshot', sheet: '数据', range: 'A1:A1', formulas: [['=SUM(B1:B3)']] },
       { action: 'writer_replace', key: 'document', snapshot: 'snapshot', oldText: '原文', replaceText: '' },
+      { action: 'writer_append', key: 'document', snapshot: 'snapshot', text: '标题\n正文' },
       { action: 'slide_text', key: 'document', snapshot: 'snapshot', slideId: 256, shapeId: 3, text: '' },
       { action: 'save', key: 'document', snapshot: 'snapshot' }
     ]) expect(validateWpsOperation(operation)).toEqual(operation)
@@ -44,6 +45,8 @@ describe('finite WPS protocol', () => {
     { action: 'save', key: 'doc', snapshot: 's', path: '/another/file' },
     { action: 'save', key: 'doc', snapshot: 's', _meta: { huaqing: { owner: 'another' } } },
     { action: 'writer_replace', key: 'd', snapshot: 's', oldText: '', replaceText: 'x' },
+    { action: 'writer_append', key: 'd', snapshot: 's', text: '  ' },
+    { action: 'writer_append', key: 'd', text: 'missing snapshot' },
     { action: 'slide_text', key: 'd', snapshot: 's', slideId: 2, shapeId: 3, text: 'x\0y' },
     ...['1', 0, -1, 1.2, 2_147_483_648, NaN].map(slideId => ({ action: 'slide_text', key: 'd', snapshot: 's', slideId, shapeId: 1, text: 'x' })),
     ...['1', 0, -1, 1.2, 2_147_483_648, NaN].map(shapeId => ({ action: 'slide_text', key: 'd', snapshot: 's', slideId: 1, shapeId, text: 'x' }))

@@ -448,7 +448,7 @@
           remember(operation.snapshot, doc, key, scope, observed)
           return result
         }
-        if (!['sheet_write', 'writer_replace', 'slide_text', 'save'].includes(operation.action)) fail('INVALID_OPERATION', 'Unknown WPS operation')
+        if (!['sheet_write', 'writer_replace', 'writer_append', 'slide_text', 'save'].includes(operation.action)) fail('INVALID_OPERATION', 'Unknown WPS operation')
         const snapshot = checkedSnapshot(operation, doc)
         let mutate
         if (operation.action === 'sheet_write') {
@@ -507,23 +507,35 @@
               }
             }
           }
-        } else if (operation.action === 'writer_replace') {
-          if (host !== 'wps' || snapshot.scope.kind !== 'writer') fail('SNAPSHOT_SCOPE', 'Inspect the Writer document before replacing text')
-          if (snapshot.observed.truncated) fail('UNSUPPORTED', 'Writer replacement requires the complete bounded body')
-          const oldText = inputText(operation.oldText, MAX_TEXT, false)
-          const replacement = inputText(operation.replaceText, MAX_TEXT, true)
+        } else if (operation.action === 'writer_replace' || operation.action === 'writer_append') {
+          if (host !== 'wps' || snapshot.scope.kind !== 'writer') fail('SNAPSHOT_SCOPE', 'Inspect the Writer document before editing text')
+          if (snapshot.observed.truncated) fail('UNSUPPORTED', 'Writer editing requires the complete bounded body')
           const body = snapshot.observed.text
-          const index = body.indexOf(oldText)
-          if (index < 0 || body.indexOf(oldText, index + 1) !== -1) fail('AMBIGUOUS_TEXT', 'The exact text must occur once in the observed body')
+          const start = snapshot.observed.start
+          const append = operation.action === 'writer_append'
+          let oldText = ''
+          let index
+          if (append) {
+            // Insert before the final paragraph mark and leave formatting and
+            // existing content outside the collapsed range untouched.
+            if (doc.Content.End !== start + body.length) fail('UNSUPPORTED', 'Writer body end could not be verified')
+            index = body.endsWith('\r') ? body.length - 1 : body.length
+          } else {
+            oldText = inputText(operation.oldText, MAX_TEXT, false)
+            index = body.indexOf(oldText)
+            if (index < 0 || body.indexOf(oldText, index + 1) !== -1) fail('AMBIGUOUS_TEXT', 'The exact text must occur once in the observed body')
+          }
+          const replacement = inputText(append ? operation.text : operation.replaceText, MAX_TEXT, !append).replace(/\r\n|\n/g, '\r')
           const expected = body.slice(0, index) + replacement + body.slice(index + oldText.length)
-          if (expected.length > MAX_TEXT) fail('LIMIT_EXCEEDED', 'Replacement exceeds the supported Writer body size')
-          const range = doc.Range(snapshot.observed.start + index, snapshot.observed.start + index + oldText.length)
-          if (range.Text !== oldText) fail('UNSUPPORTED', 'Writer range positions could not be verified')
+          if (expected.length > MAX_TEXT) fail('LIMIT_EXCEEDED', 'Edit exceeds the supported Writer body size')
+          const offset = start + index
+          const range = doc.Range(offset, offset + oldText.length)
+          if (range.Text !== oldText || append && (range.Start !== offset || range.End !== offset)) fail('UNSUPPORTED', 'Writer range positions could not be verified')
           mutate = () => {
             attempted = true
             range.Text = replacement
             const after = writer(doc)
-            if (after.truncated || after.text !== expected) throw new WpsAdapterError('READBACK_MISMATCH', 'Writer replacement could not be verified', 'unknown', 0)
+            if (after.truncated || after.text !== expected) throw new WpsAdapterError('READBACK_MISMATCH', 'Writer edit could not be verified', 'unknown', 0)
             completed = 1
           }
         } else if (operation.action === 'slide_text') {

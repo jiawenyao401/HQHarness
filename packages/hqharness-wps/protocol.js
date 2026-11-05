@@ -4,12 +4,13 @@ export const WPS_MAX_OPERATION_BYTES = 65_536
 export const WPS_MAX_CELLS = 1000
 export const WPS_MAX_FORMULA_LENGTH = 4096
 export const WPS_READ_ACTIONS = Object.freeze(['status', 'documents', 'inspect', 'sheet_read', 'recover'])
-export const WPS_WRITE_ACTIONS = Object.freeze(['sheet_write', 'writer_replace', 'slide_text', 'save'])
+export const WPS_WRITE_ACTIONS = Object.freeze(['sheet_write', 'writer_replace', 'writer_append', 'slide_text', 'save'])
 
 const fields = Object.freeze({
   status: [], documents: [], inspect: ['key'], recover: ['key'], sheet_read: ['key', 'sheet', 'range'],
   sheet_write: ['key', 'snapshot', 'sheet', 'range'],
   writer_replace: ['key', 'snapshot', 'oldText', 'replaceText'],
+  writer_append: ['key', 'snapshot', 'text'],
   slide_text: ['key', 'snapshot', 'slideId', 'shapeId', 'text'], save: ['key', 'snapshot']
 })
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -90,7 +91,7 @@ export const WPS_INPUT_SCHEMA = freeze({
       description: `Explicit =-prefixed local calculations, at most ${WPS_MAX_FORMULA_LENGTH} characters per formula. A1 references and bounded ranges only; no external links, URLs, DDE, macros, UDFs, named ranges or dynamic references. Supported built-ins: ${WPS_FORMULA_FUNCTIONS.join(', ')}. Use values with null to clear a cell.`
     },
     oldText: { type: 'string' }, replaceText: { type: 'string' },
-    slideId: { type: 'integer', description: 'Positive slide ID returned by WPS inspection.' }, shapeId: { type: 'integer', description: 'Positive shape ID returned by WPS inspection.' }, text: { type: 'string' }
+    slideId: { type: 'integer', description: 'Positive slide ID returned by WPS inspection.' }, shapeId: { type: 'integer', description: 'Positive shape ID returned by WPS inspection.' }, text: { type: 'string', description: 'Plain text to append to the Writer body or to replace the selected slide shape text.' }
   }
 })
 
@@ -238,7 +239,7 @@ export function validateWpsOperation(value) {
   for (const key of required) {
     if (key === 'slideId' || key === 'shapeId') {
       if (!Number.isSafeInteger(value[key]) || value[key] < 1 || value[key] > 2_147_483_647) fail(`${key} must be a positive 32-bit integer`)
-    } else string(value[key], key, key === 'replaceText' || key === 'text')
+    } else string(value[key], key, key === 'replaceText' || key === 'text' && value.action !== 'writer_append')
   }
   if (value.action === 'sheet_write') {
     const hasValues = Object.hasOwn(value, 'values')

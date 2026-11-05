@@ -16,7 +16,7 @@ vi.mock('electron', () => ({
 import { DesktopWpsService } from '../src/main/wps/service.ts'
 import { WpsDocuments } from '../src/main/wps/documents.ts'
 import { createWpsPlugin } from '../packages/hqharness-wps/index.js'
-import { WPS_RAW_TOOL_NAME } from '../packages/hqharness-wps/protocol.js'
+import { WPS_RAW_TOOL_NAME, WPS_WRITE_ACTIONS } from '../packages/hqharness-wps/protocol.js'
 
 const cleanups = []
 const digest = value => createHash('sha256').update(value).digest('hex')
@@ -55,22 +55,23 @@ async function fixture() {
   return { directory, service, env, call, raw, connectRaw, clientId }
 }
 
-async function addin(f, handler) {
+async function addin(f, handler, host = 'et') {
   const installation = JSON.parse(await readFile(join(f.directory, 'connection.json'), 'utf8'))
   const origin = new URL(f.env.HQHARNESS_WPS_URL).origin
-  const socket = new WebSocket(`${origin.replace('http:', 'ws:')}/${installation.secret}/bridge/et`, { origin })
+  const socket = new WebSocket(`${origin.replace('http:', 'ws:')}/${installation.secret}/bridge/${host}`, { origin })
   cleanups.push(async () => { socket.terminate() })
   await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject) })
-  const path = join(f.directory, 'wire-document.xlsx')
+  const filename = host === 'wps' ? 'wire-document.docx' : 'wire-document.xlsx'
+  const path = join(f.directory, filename)
   await writeFile(path, 'local WPS fixture; no WPS process is used')
   socket.on('message', data => {
     const message = JSON.parse(data.toString())
     if (message.type !== 'execute') return
     if (handler?.(message) === false) return
-    const mutating = ['sheet_write', 'writer_replace', 'slide_text', 'save'].includes(message.operation.action)
+    const mutating = WPS_WRITE_ACTIONS.includes(message.operation.action)
     socket.send(JSON.stringify({ type: 'result', id: message.id, result: { ok: true, value: { snapshot: mutating ? message.operation.nextSnapshot : message.operation.snapshot, inspected: true } } }))
   })
-  socket.send(JSON.stringify({ type: 'hello', protocol: 1, host: 'et', documents: [{ key: 'native-document-key', name: 'wire-document.xlsx', path, type: 'spreadsheet', saved: true, readOnly: false }] }))
+  socket.send(JSON.stringify({ type: 'hello', protocol: 1, host, documents: [{ key: 'native-document-key', name: filename, path, type: host === 'wps' ? 'writer' : 'spreadsheet', saved: true, readOnly: false }] }))
   await vi.waitFor(() => expect(f.service.status().connectedDocuments).toBe(1))
   return socket
 }
@@ -123,11 +124,26 @@ describe('real local MCP SDK wire and Desktop WPS service', () => {
   it('initializes the real client and forwards the exact current session policy to Main', async () => {
     const spy = vi.spyOn(WpsDocuments.prototype, 'execute')
     const f = await fixture()
-    expect(await f.call({ action: 'status' })).toMatchObject({ component: 'local-wps', connected: false })
+    expect(await f.call({ action: 'status' })).toMatchObject({ component: 'local-wps', connected: false, guidance: expect.stringContaining('Enable WPS connection') })
     expect(spy).toHaveBeenCalledWith({ action: 'status' }, { owner: 'owner-one', policy: { mode: 'workspace-write', workspaceRoot: f.directory } }, expect.any(AbortSignal))
     expect(fakes.dialog).not.toHaveBeenCalled()
-    expect(await f.call({ action: 'documents' })).toMatchObject({ documents: [] })
+    expect(await f.call({ action: 'documents' })).toMatchObject({ documents: [], guidance: expect.stringContaining('Enable WPS connection') })
     expect(fakes.dialog).toHaveBeenCalledOnce()
+  })
+  it('dispatches Writer append once, after inspecting and authorizing the bound document', async () => {
+    const f = await fixture()
+    const forwarded = []
+    await addin(f, message => { forwarded.push(message.operation) }, 'wps')
+    const { documents: [document] } = await f.call({ action: 'documents' })
+    const { snapshot } = await f.call({ action: 'inspect', key: document.key })
+    const operation = { action: 'writer_append', key: document.key, snapshot, text: '会议纪要\n行动项' }
+    const result = await f.call(operation)
+    expect(typeof result.snapshot).toBe('string')
+    expect(result.snapshot).not.toBe(snapshot)
+    await expect(f.call(operation)).rejects.toThrow('Read this WPS document or range again')
+    expect(forwarded.map(call => call.action)).toEqual(['inspect', 'writer_append'])
+    expect(forwarded[1]).toMatchObject({ key: 'native-document-key', text: operation.text })
+    expect(fakes.dialog).toHaveBeenCalledTimes(3)
   })
   it('rejects missing bearer and foreign origins before MCP dispatch', async () => {
     const f = await fixture()
