@@ -53,6 +53,19 @@ Electron logs/
 
 Production and development builds use separate user-data roots. Application upgrades do not replace profile, plugin, workspace, session, or model configuration data.
 
+On first use, Harness creates the default workspace at
+`HuaqingDesktop/default-workspace` under the system Documents folder.
+The pinned workspace-controller patch changes the relative path and retains
+native Documents lookup, including Windows folder redirection. Remove the
+patch once the controller supports a deployment-specific default subdirectory.
+Already registered workspaces retain their paths and contents.
+
+The Windows current-user installer defaults to `HuaqingDesktop/app` under
+the same Documents folder on a fresh install. The installer owns the `app`
+directory only and refuses to use the workspace or its parent for a directory
+swap. It reuses a registered install location for upgrades, and all-users
+installation keeps the standard Windows program directory.
+
 ## Window and IPC security
 
 The main Harness window uses:

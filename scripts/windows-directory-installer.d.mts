@@ -1,3 +1,5 @@
+export function directoryInstallModes(source: string): string
+export function directoryAssistedInstaller(source: string): string
 export function directoryInstallSection(source: string): string
 export function directoryInstallerExits(source: string): string
 export function directoryInstallUtil(source: string): string

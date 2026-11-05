@@ -65,6 +65,12 @@ jobs:
       - name: Verify SDK and real Agent tools from the actual packaged dependency closure
         shell: pwsh
         run: node scripts/automation-native-package-smoke.mjs 'dist/win-unpacked/HQHarness.exe' 'dist/win-unpacked/resources/app.asar'
+      - name: Verify default Documents installation and workspace retention
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem dist -File -Filter 'Huaqing-Desktop-*.exe')
+          if ($installers.Count -ne 1) { throw 'Expected exactly one acceptance installer.' }
+          ./scripts/smoke-windows-documents-install.ps1 -Installer ($installers[0].FullName)
       - name: Record exact artifact identity and outstanding manual acceptance
         shell: pwsh
         run: |
@@ -96,6 +102,7 @@ jobs:
             file = $installer.Name
             sha256 = $hash.Hash.ToLowerInvariant()
             signed = $false
+            documentsInstall = 'passed (native Windows default path, upgrade and uninstall preserve the sibling workspace)'
             installedApp = 'pending user acceptance'
             computerInput = 'pending user acceptance'
             browserUse = 'pending user acceptance'

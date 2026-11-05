@@ -1,5 +1,9 @@
 ; Adapted from deepseek-ai/deepseek-harness/apps/desktop/scripts/installer-directories.nsh.
 !include "LogicLib.nsh"
+!define HQHARNESS_DOCUMENTS_ROOT "HuaqingDesktop"
+!if "${APP_ID}" == "app.hqharness.desktop"
+  !define HQHARNESS_DOCUMENTS_APP "${HQHARNESS_DOCUMENTS_ROOT}\app"
+!endif
 
 Var dshFinalDirectory
 Var dshNewDirectory
@@ -19,7 +23,46 @@ Var dshNewMoved
   ${EndIf}
 !macroend
 
+; The transaction renames the entire install directory, including for /S /D=.
+Function dshValidateInstallDirectory
+  ${If} $DOCUMENTS != ""
+    GetFullPathName $R1 "$DOCUMENTS\${HQHARNESS_DOCUMENTS_ROOT}"
+    GetFullPathName $R2 "$INSTDIR"
+    ${If} $R2 == $R1
+      Goto unsafe
+    ${EndIf}
+    StrCpy $R1 "$R1\default-workspace\"
+    StrLen $R3 $R1
+    StrCpy $R2 "$R2\" $R3
+    ${If} $R2 == $R1
+      Goto unsafe
+    ${EndIf}
+  ${EndIf}
+  IfFileExists "$INSTDIR\default-workspace\." unsafe
+  System::Call 'kernel32::GetFileAttributesW(w "$INSTDIR") i .r0'
+  ${If} $0 != -1
+    IntOp $0 $0 & 0x400
+    ${If} $0 != 0
+      Goto unsafe
+    ${EndIf}
+  ${EndIf}
+  Return
+
+  unsafe:
+    StrCpy $0 "Choose a program folder outside the default workspace."
+    ${If} $LANGUAGE == 2052
+      StrCpy $0 "请选择默认工作区之外的程序目录。"
+    ${ElseIf} $LANGUAGE == 1028
+      StrCpy $0 "請選擇預設工作區之外的程式目錄。"
+    ${EndIf}
+    DetailPrint $0
+    MessageBox MB_ICONSTOP|MB_OK "$0" /SD IDOK
+    SetErrorLevel 2
+    Quit
+FunctionEnd
+
 !macro dshStageApplication
+  Call dshValidateInstallDirectory
   StrCpy $dshFinalDirectory $INSTDIR
   System::Call 'ole32::CoCreateGuid(g .r0) i .r1'
   ${If} $1 != 0

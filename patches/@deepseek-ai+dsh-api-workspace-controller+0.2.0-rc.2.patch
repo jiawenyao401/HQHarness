@@ -1,0 +1,55 @@
+diff --git a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/index.js b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/index.js
+--- a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/index.js
+@@ -578,7 +578,7 @@
+ */
+ /**
+ * Leaf directory name of the first-use Workspace under
+-* `<Documents>/deepseek-harness`. Language-neutral, so one installation keeps
++* `<Documents>/HuaqingDesktop`. Language-neutral, so one installation keeps
+ * one on-disk path across language switches. The registry derives the initial
+ * title from this same segment, which is the title
+ * {@link workspaceDisplayTitle} recognizes as automatic.
+@@ -637,7 +637,7 @@
+ 	}
+ 	directory = validateDocumentsDirectory(directory, platform);
+ 	signal.throwIfAborted();
+-	return paths.join(directory, "deepseek-harness", DEFAULT_WORKSPACE_DIRECTORY);
++	return paths.join(directory, "HuaqingDesktop", DEFAULT_WORKSPACE_DIRECTORY);
+ }
+ //#endregion
+ //#region lib/types/index.js
+diff --git a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-directory.js b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-directory.js
+--- a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-directory.js
++++ b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-directory.js
+@@ -60,5 +60,5 @@
+     }
+     directory = validateDocumentsDirectory(directory, platform);
+     signal.throwIfAborted();
+-    return paths.join(directory, 'deepseek-harness', DEFAULT_WORKSPACE_DIRECTORY);
++    return paths.join(directory, 'HuaqingDesktop', DEFAULT_WORKSPACE_DIRECTORY);
+ }
+diff --git a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.js b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.js
+--- a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.js
++++ b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.js
+@@ -7,7 +7,7 @@
+  */
+ /**
+  * Leaf directory name of the first-use Workspace under
+- * `<Documents>/deepseek-harness`. Language-neutral, so one installation keeps
++ * `<Documents>/HuaqingDesktop`. Language-neutral, so one installation keeps
+  * one on-disk path across language switches. The registry derives the initial
+  * title from this same segment, which is the title
+  * {@link workspaceDisplayTitle} recognizes as automatic.
+diff --git a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.d.ts b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.d.ts
+--- a/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.d.ts
++++ b/node_modules/@deepseek-ai/dsh-api-workspace-controller/lib/types/default-workspace.d.ts
+@@ -7,7 +7,7 @@
+  */
+ /**
+  * Leaf directory name of the first-use Workspace under
+- * `<Documents>/deepseek-harness`. Language-neutral, so one installation keeps
++ * `<Documents>/HuaqingDesktop`. Language-neutral, so one installation keeps
+  * one on-disk path across language switches. The registry derives the initial
+  * title from this same segment, which is the title
+  * {@link workspaceDisplayTitle} recognizes as automatic.

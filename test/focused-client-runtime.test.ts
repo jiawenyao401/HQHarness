@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -10,19 +10,28 @@ import { ensureSafeModeProfile, SAFE_MODE_PROFILE } from '../src/main/state/safe
 import { resolveTestNodeExecutable } from './node-executable'
 import { projectRoot } from './patch-path'
 
-it.each(['web', SAFE_MODE_PROFILE])('boots %s without market modules and retains its bundled client surface', async (profile) => {
-  const home = await mkdtemp(join(tmpdir(), 'hq-focused-runtime-'))
+it.each([
+  { profile: 'web', existingWorkspace: false },
+  { profile: SAFE_MODE_PROFILE, existingWorkspace: false },
+  { profile: 'web', existingWorkspace: true }
+])('boots $profile with its desktop client surface (existing workspace: $existingWorkspace)', async ({ profile, existingWorkspace }) => {
+  const home = await realpath(await mkdtemp(join(tmpdir(), 'hq-focused-runtime-')))
+  const documents = join(home, 'System Documents')
+  const legacy = join(documents, 'deepseek-harness', 'default-workspace')
   const source = join(projectRoot, profile === SAFE_MODE_PROFILE ? 'build/dsh-desktop-safe.patch.yml' : 'build/dsh-desktop.patch.yml')
   const patch = join(home, 'desktop-test.patch.yml')
   const request = join(home, 'identity-request.json')
   const provider = pathToFileURL(join(projectRoot, 'test/fixtures/desktop-identity-provider.mjs')).href
   await writeFile(patch, await readFile(source, 'utf8') + `
+- id: workspace-controller
+  config:
+    documentsDirectory: ${JSON.stringify(documents)}
 - insert:
     - id: desktop-identity-probe
       name: ${JSON.stringify(provider)}
       config:
         output: ${JSON.stringify(request)}
-        workspace: ${JSON.stringify(home)}
+        legacyWorkspace: ${JSON.stringify(existingWorkspace ? legacy : null)}
 `)
   const runtime = new HarnessRuntime({
     dshEntryPath: join(projectRoot, 'node_modules/@deepseek-ai/dsh/lib/bin.js'),
@@ -50,8 +59,16 @@ it.each(['web', SAFE_MODE_PROFILE])('boots %s without market modules and retains
         return ''
       }
     }, { timeout: 8_000 }).not.toBe('')
-    const captured = JSON.parse(await readFile(request, 'utf8')) as { model?: string; system?: unknown; error?: string }
+    const captured = JSON.parse(await readFile(request, 'utf8')) as { model?: string; system?: unknown; error?: string; workspace?: { path: string; title: string } }
     expect(captured.error).toBeUndefined()
+    const expected = existingWorkspace ? legacy : join(documents, 'HuaqingDesktop', 'default-workspace')
+    expect(captured.workspace?.path).toBe(expected)
+    expect(captured.workspace?.title).toBe('default-workspace')
+    expect((await stat(expected)).isDirectory()).toBe(true)
+    if (existingWorkspace) {
+      await expect(readFile(join(legacy, 'existing.txt'), 'utf8')).resolves.toBe('existing workspace')
+      await expect(stat(join(documents, 'HuaqingDesktop'))).rejects.toMatchObject({ code: 'ENOENT' })
+    }
     expect(captured.model).toBe('hq-private-routing-id-v1')
     const system = JSON.stringify(captured.system)
     expect(system).toContain('You are Huaqing Harness')

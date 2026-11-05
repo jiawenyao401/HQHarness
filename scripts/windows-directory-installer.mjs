@@ -48,6 +48,50 @@ function replaceOnce(source, before, after) {
   return source.replace(before, after)
 }
 
+// The upstream template looks up the registered path before it chooses a
+// default. Keep upgrades and the explicit /D override on that same path.
+export function directoryInstallModes(source) {
+  return replaceOnce(
+    source.replaceAll('\r\n', '\n'),
+    '      Pop $1\n\n      StrCpy $INSTDIR "$0\\${APP_FILENAME}"',
+    `      Pop $1
+
+      !ifdef HQHARNESS_DOCUMENTS_APP
+        \${If} $DOCUMENTS != ""
+          StrCpy $0 "$DOCUMENTS\\\${HQHARNESS_DOCUMENTS_APP}"
+          StrCpy $INSTDIR $0
+        \${Else}
+      !endif
+      StrCpy $INSTDIR "$0\\\${APP_FILENAME}"
+      !ifdef HQHARNESS_DOCUMENTS_APP
+        \${EndIf}
+      !endif`
+  )
+}
+
+export function directoryAssistedInstaller(source) {
+  return replaceOnce(
+    source.replaceAll('\r\n', '\n'),
+    '    Function instFilesPre\n',
+    `    Function instFilesPre
+      !ifdef HQHARNESS_DOCUMENTS_APP
+      \${If} $installMode == "CurrentUser"
+      \${AndIf} $DOCUMENTS != ""
+        GetFullPathName $1 "$DOCUMENTS\\\${HQHARNESS_DOCUMENTS_ROOT}"
+        GetFullPathName $0 "$INSTDIR"
+        \${If} $0 == $1
+          StrCpy $INSTDIR "$1\\app"
+          Return
+        \${EndIf}
+        \${If} $0 == "$1\\app"
+          Return
+        \${EndIf}
+      \${EndIf}
+      !endif
+`
+  )
+}
+
 export function directoryInstallSection(source) {
   let result = source.replaceAll('\r\n', '\n')
   result = replaceOnce(result, '!include installer.nsh', `!include installer.nsh
@@ -116,6 +160,14 @@ export function installWindowsDirectoryInstaller() {
     await copyFile(executable, tool)
     await signWindowsPeWithJsign(tool)
     let adapted = replaceOnce(source, '!include "installSection.nsh"', `!include "${section}"`)
+    for (const [name, transform] of [
+      ['multiUser.nsh', directoryInstallModes],
+      ['assistedInstaller.nsh', directoryAssistedInstaller]
+    ]) {
+      const path = join(directory, name)
+      await writeFile(path, transform(await readFile(join(templates, name), 'utf8')))
+      adapted = replaceOnce(adapted, `!include "${name}"`, `!include "${path}"`)
+    }
     for (const helper of ['allowOnlyOneInstallerInstance.nsh', 'installUtil.nsh']) {
       const path = join(directory, helper)
       const source = await readFile(join(templates, 'include', helper), 'utf8')

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { assertWindowsExecutable, directoryInstallSection, directoryInstallerExits, directoryInstallUtil } from '../scripts/windows-directory-installer.mjs'
+import { assertWindowsExecutable, directoryAssistedInstaller, directoryInstallModes, directoryInstallSection, directoryInstallerExits, directoryInstallUtil } from '../scripts/windows-directory-installer.mjs'
 
 const require = createRequire(import.meta.url)
 const template = join(dirname(require.resolve('app-builder-lib/package.json')), 'templates', 'nsis', 'installSection.nsh')
@@ -36,6 +36,17 @@ describe('pinned NSIS directory transaction', () => {
     expect(adaptedUtil).not.toContain('Function uninstallOldVersion')
     expect(adaptedUtil).not.toContain('Function GetInQuotes')
     expect(adaptedUtil).not.toContain('Function GetFileParent')
+  })
+
+  it('sets the Documents default only after checking the registered per-user path', async () => {
+    const modes = directoryInstallModes(await readFile(join(dirname(template), 'multiUser.nsh'), 'utf8'))
+    const currentUser = modes.slice(modes.indexOf('!macro setInstallModePerUser'), modes.indexOf('!macro setInstallModePerAllUsers'))
+    expect(currentUser.indexOf('StrCpy $INSTDIR $perUserInstallationFolder')).toBeLessThan(currentUser.indexOf('${HQHARNESS_DOCUMENTS_APP}'))
+    expect(currentUser.indexOf('${HQHARNESS_DOCUMENTS_APP}')).toBeLessThan(currentUser.indexOf('!insertmacro GetDParameter'))
+    expect(modes.slice(modes.indexOf('!macro setInstallModePerAllUsers'))).not.toContain('HQHARNESS_DOCUMENTS_APP')
+
+    const assisted = directoryAssistedInstaller(await readFile(join(dirname(template), 'assistedInstaller.nsh'), 'utf8'))
+    expect(assisted.indexOf('If} $0 == "$1\\app"')).toBeLessThan(assisted.indexOf('${StrContains} $0 "${APP_FILENAME}"'))
   })
 
   it('rejects a changed electron-builder template', () => {
