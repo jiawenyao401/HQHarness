@@ -1,5 +1,7 @@
 import type { PluginStartupFailure } from './plugin-startup-failure'
 
+export const DESKTOP_VERSION_ARGUMENT = '--hqharness-desktop-version='
+
 export type RuntimePhase =
   | 'idle'
   | 'starting'

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AvailableRelease, UpdateStatus } from '../shared/contracts'
+import { DESKTOP_VERSION_ARGUMENT, type AvailableRelease, type UpdateStatus } from '../shared/contracts'
 import { PRODUCT_NAME } from '../shared/brand'
 import { phoneIcon, updateIcon } from '../../.build/brand/ui-icons'
 import { setupDesktopStoragePersistence } from './desktop-storage'
@@ -592,6 +592,8 @@ window.addEventListener('pagehide', () => {
 contextBridge.exposeInMainWorld(
   'dshDesktop',
   Object.freeze({
+    desktopVersion: process.argv.find(arg => arg.startsWith(DESKTOP_VERSION_ARGUMENT))
+      ?.slice(DESKTOP_VERSION_ARGUMENT.length),
     restartHarness: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('harness:restart'),
     getBuiltInImageGenerationStatus: (): Promise<{ enabled: boolean; marketActive: boolean }> =>
       ipcRenderer.invoke('desktop-host-plugin:status'),
