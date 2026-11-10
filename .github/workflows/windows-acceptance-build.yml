@@ -20,9 +20,25 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4
+        id: node
         with:
           node-version: 24
           cache: npm
+      # Bumping the app version changes the lockfile hash even when its dependencies are identical.
+      - name: Locate npm cache for fallback restore
+        if: steps.node.outputs.cache-hit != 'true'
+        id: npm-cache
+        shell: pwsh
+        run: |
+          $directory = npm config get cache
+          if ($LASTEXITCODE -ne 0 -or -not $directory) { throw 'Could not locate the npm cache.' }
+          "directory=$directory" >> $env:GITHUB_OUTPUT
+      - uses: actions/cache/restore@v4
+        if: steps.node.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.npm-cache.outputs.directory }}
+          key: node-cache-Windows-x64-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: node-cache-Windows-x64-npm-
       - name: Verify private draft delivery destination
         if: inputs.draft_delivery
         env:
