@@ -55,10 +55,11 @@ Production and development builds use separate user-data roots. Application upgr
 
 On first use, Harness creates the default workspace at
 `HuaqingDesktop/default-workspace` under the system Documents folder.
-The pinned workspace-controller patch changes the relative path and retains
-native Documents lookup, including Windows folder redirection. Remove the
-patch once the controller supports a deployment-specific default subdirectory.
-Already registered workspaces retain their paths and contents.
+The pinned workspace patches retain native Documents lookup, including Windows
+folder redirection. When a new chat would use the old automatic workspace
+under Documents, the desktop resolves the branded default and registers it
+through the workspace registry. The original workspace, its files and its
+existing sessions keep their paths. Explicit workspace choices stay available.
 
 The Windows current-user installer defaults to `HuaqingDesktop/app` under
 the same Documents folder on a fresh install. The installer owns the `app`

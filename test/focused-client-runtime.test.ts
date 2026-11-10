@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,11 +13,13 @@ import { projectRoot } from './patch-path'
 it.each([
   { profile: 'web', existingWorkspace: false },
   { profile: SAFE_MODE_PROFILE, existingWorkspace: false },
-  { profile: 'web', existingWorkspace: true }
+  { profile: 'web', existingWorkspace: true },
+  { profile: 'web', existingWorkspace: 'custom' }
 ])('boots $profile with its desktop client surface (existing workspace: $existingWorkspace)', async ({ profile, existingWorkspace }) => {
   const home = await realpath(await mkdtemp(join(tmpdir(), 'hq-focused-runtime-')))
   const documents = join(home, 'System Documents')
-  const legacy = join(documents, 'deepseek-harness', 'default-workspace')
+  const legacy = join(existingWorkspace === 'custom' ? join(home, 'Other project') : documents, 'deepseek-harness', 'default-workspace')
+  if (existingWorkspace === 'custom') await mkdir(documents)
   const source = join(projectRoot, profile === SAFE_MODE_PROFILE ? 'build/dsh-desktop-safe.patch.yml' : 'build/dsh-desktop.patch.yml')
   const patch = join(home, 'desktop-test.patch.yml')
   const request = join(home, 'identity-request.json')
@@ -59,15 +61,15 @@ it.each([
         return ''
       }
     }, { timeout: 8_000 }).not.toBe('')
-    const captured = JSON.parse(await readFile(request, 'utf8')) as { model?: string; system?: unknown; error?: string; workspace?: { path: string; title: string } }
+    const captured = JSON.parse(await readFile(request, 'utf8')) as { model?: string; system?: unknown; error?: string; legacyPath?: string; workspace?: { path: string; title: string } }
     expect(captured.error).toBeUndefined()
-    const expected = existingWorkspace ? legacy : join(documents, 'HuaqingDesktop', 'default-workspace')
+    const expected = existingWorkspace === 'custom' ? legacy : join(documents, 'HuaqingDesktop', 'default-workspace')
     expect(captured.workspace?.path).toBe(expected)
     expect(captured.workspace?.title).toBe('default-workspace')
     expect((await stat(expected)).isDirectory()).toBe(true)
     if (existingWorkspace) {
+      expect(captured.legacyPath).toBe(legacy)
       await expect(readFile(join(legacy, 'existing.txt'), 'utf8')).resolves.toBe('existing workspace')
-      await expect(stat(join(documents, 'HuaqingDesktop'))).rejects.toMatchObject({ code: 'ENOENT' })
     }
     expect(captured.model).toBe('hq-private-routing-id-v1')
     const system = JSON.stringify(captured.system)

@@ -1,6 +1,6 @@
 {
   "name": "hqharness",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Huaqing Desktop — a local-first, cross-platform AI agent workspace powered by DeepSeek Harness.",
   "private": true,
   "type": "module",

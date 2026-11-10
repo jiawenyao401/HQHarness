@@ -1,8 +1,35 @@
 diff --git a/node_modules/@deepseek-ai/dsh-workspace/lib/index.js b/node_modules/@deepseek-ai/dsh-workspace/lib/index.js
-index 9e3936a..77ed234 100644
+index 9e3936a..e7d43e0 100644
 --- a/node_modules/@deepseek-ai/dsh-workspace/lib/index.js
 +++ b/node_modules/@deepseek-ai/dsh-workspace/lib/index.js
-@@ -538,6 +538,26 @@ var WorkspaceRegistry = class extends Service {
+@@ -420,10 +420,24 @@ var WorkspaceRegistry = class extends Service {
+ 	* After resolution, caller cancellation does not roll back creation or registration.
+ 	* @returns the initialized Workspace, or undefined when automatic creation is ineligible.
+ 	*/
+-	initializeDefault(resolveDirectory) {
++	initializeDefault(resolveDirectory, resolveReplacement) {
+ 		return this.enqueueOperation(async () => {
+ 			const state = this.requireState();
+-			if (state.defaultWorkspaceId !== void 0) return this.entities.get(state.defaultWorkspaceId);
++			if (state.defaultWorkspaceId !== void 0) {
++				const current = this.entities.get(state.defaultWorkspaceId);
++				if (current === void 0 || resolveReplacement === void 0) return current;
++				const replacement = await resolveReplacement(current.path);
++				if (replacement === void 0) return current;
++				if (!fullyQualifiedWorkspacePath(replacement)) throw new TypeError("Replacement Workspace path must be fully qualified");
++				await mkdir(replacement, { recursive: true });
++				const canonical = await realpathNormalize(replacement);
++				const existing = await this.resolveByPath(canonical);
++				if (existing !== void 0) {
++					if (existing.id !== current.id) await this.setState({ ...state, defaultWorkspaceId: existing.id });
++					return existing;
++				}
++				return this.createCanonical(canonical, defaultWorkspaceTitle(replacement), true);
++			}
+ 			const sessions = this.ctx.get("sessions");
+ 			if (sessions === void 0) throw new Error("default Workspace initialization requires the Session store");
+ 			if (state.workspaceIds.length > 0 || state.archivedSessionIds.length > 0 || sessions.list().length > 0 || (await this.listStoredHeaders()).length > 0) return void 0;
+@@ -538,6 +552,26 @@ var WorkspaceRegistry = class extends Service {
  			if (options.stopActivity === true) await this.stopSessionActivity(sessionId);
  		});
  	}
@@ -30,9 +57,18 @@ index 9e3936a..77ed234 100644
  	* Unarchive one session durably by dropping it from the registry-global
  	* archive set; the accounting slot was never touched, so the session
 diff --git a/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.d.ts b/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.d.ts
-index daa6916..9687fcb 100644
+index daa6916..4a33847 100644
 --- a/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.d.ts
 +++ b/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.d.ts
+@@ -155,7 +155,7 @@ export declare class WorkspaceRegistry extends Service {
+      * After resolution, caller cancellation does not roll back creation or registration.
+      * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
+      */
+-    initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined>;
++    initializeDefault(resolveDirectory: () => Promise<string>, resolveReplacement?: (currentPath: string) => Promise<string | undefined>): Promise<Workspace | undefined>;
+     /**
+      * Look up a workspace by id.
+      * @param id - Workspace id.
 @@ -211,6 +211,8 @@ export declare class WorkspaceRegistry extends Service {
       * @returns resolution after durability and, with `stopActivity`, after every stop request was issued.
       */
@@ -43,10 +79,38 @@ index daa6916..9687fcb 100644
       * Unarchive one session durably by dropping it from the registry-global
       * archive set; the accounting slot was never touched, so the session
 diff --git a/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.js b/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.js
-index fa1c9a7..9be12f8 100644
+index fa1c9a7..c0fd7c8 100644
 --- a/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.js
 +++ b/node_modules/@deepseek-ai/dsh-workspace/lib/types/index.js
-@@ -301,6 +301,31 @@ export class WorkspaceRegistry extends Service {
+@@ -169,11 +169,24 @@ export class WorkspaceRegistry extends Service {
+      * After resolution, caller cancellation does not roll back creation or registration.
+      * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
+      */
+-    initializeDefault(resolveDirectory) {
++    initializeDefault(resolveDirectory, resolveReplacement) {
+         return this.enqueueOperation(async () => {
+             const state = this.requireState();
+-            if (state.defaultWorkspaceId !== undefined)
+-                return this.entities.get(state.defaultWorkspaceId);
++            if (state.defaultWorkspaceId !== undefined) {
++                const current = this.entities.get(state.defaultWorkspaceId);
++                if (current === undefined || resolveReplacement === undefined) return current;
++                const replacement = await resolveReplacement(current.path);
++                if (replacement === undefined) return current;
++                if (!fullyQualifiedWorkspacePath(replacement)) throw new TypeError("Replacement Workspace path must be fully qualified");
++                await mkdir(replacement, { recursive: true });
++                const canonical = await realpathNormalize(replacement);
++                const existing = await this.resolveByPath(canonical);
++                if (existing !== undefined) {
++                    if (existing.id !== current.id) await this.setState({ ...state, defaultWorkspaceId: existing.id });
++                    return existing;
++                }
++                return this.createCanonical(canonical, defaultWorkspaceTitle(replacement), true);
++            }
+             const sessions = this.ctx.get('sessions');
+             if (sessions === undefined)
+                 throw new Error('default Workspace initialization requires the Session store');
+@@ -301,6 +314,31 @@ export class WorkspaceRegistry extends Service {
                  await this.stopSessionActivity(sessionId);
          });
      }

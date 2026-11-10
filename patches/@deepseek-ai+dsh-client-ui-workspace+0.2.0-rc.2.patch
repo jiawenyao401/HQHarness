@@ -1,5 +1,5 @@
 diff --git a/node_modules/@deepseek-ai/dsh-client-ui-workspace/lib/client.js b/node_modules/@deepseek-ai/dsh-client-ui-workspace/lib/client.js
-index 41a4591..ca0f8f3 100644
+index 41a4591..a598e51 100644
 --- a/node_modules/@deepseek-ai/dsh-client-ui-workspace/lib/client.js
 +++ b/node_modules/@deepseek-ai/dsh-client-ui-workspace/lib/client.js
 @@ -489,6 +489,7 @@ window.__ModuleLoader__.load({
@@ -197,16 +197,37 @@ index 41a4591..ca0f8f3 100644
  				const workspace = this.workspaces.list.getSnapshot();
  				const sessions = this.sessions.list.getSnapshot();
  				const current = this.mainReference?.sessionId;
-@@ -854,7 +962,7 @@ window.__ModuleLoader__.load({
+@@ -854,10 +962,28 @@ window.__ModuleLoader__.load({
  					this.clearMain();
  					return;
  				}
 -				this.openWorkspace(target).catch((reason) => {
-+				this.openWorkspace(target, void 0, true).catch((reason) => {
++				const legacy = workspaceId === void 0 && this.legacyDefaultPath(target);
++				const opening = legacy ? this.openNewDefaultWorkspace(target, legacy) : this.openWorkspace(target, void 0, true);
++				opening.catch((reason) => {
  					console.warn("new session failed:", reason);
  				});
  			}
-@@ -865,6 +973,24 @@ window.__ModuleLoader__.load({
++			legacyDefaultPath(workspaceId) {
++				const path = this.workspaces.list.getSnapshot().items.find((item) => item.workspaceId === workspaceId)?.path;
++				if (path === void 0) return;
++				const windows = /^[a-z]:/i.test(path) || path.startsWith("\\\\");
++				const normalize = (value) => windows ? value.replaceAll("\\", "/").toLowerCase() : value;
++				const suffix = "/deepseek-harness/default-workspace";
++				const current = normalize(path);
++				if (!current.endsWith(suffix)) return;
++				return (candidate) => normalize(candidate) === current.slice(0, -suffix.length) + normalize("/HuaqingDesktop/default-workspace");
++			}
++			async openNewDefaultWorkspace(target, matchesReplacement) {
++				const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal]);
++				const preferred = await this.initializeDefaultWorkspace(navigation);
++				if (navigation.aborted) return;
++				await this.openWorkspace(preferred && matchesReplacement(preferred.path) ? preferred.workspaceId : target, void 0, true);
++			}
+ 			async archiveSession(sessionId, options = {}) {
+ 				await this.workspaces.archiveSession(sessionId, options);
+ 				if (this.mainReference?.sessionId === sessionId) this.clearMain();
+@@ -865,6 +991,24 @@ window.__ModuleLoader__.load({
  			async unarchiveSession(sessionId) {
  				await this.workspaces.unarchiveSession(sessionId);
  			}
@@ -231,7 +252,25 @@ index 41a4591..ca0f8f3 100644
  			async pinSession(sessionId) {
  				await this.workspaces.pinSession(sessionId);
  				const { items, pinnedSessionIds, archivedSessionIds } = this.workspaces.list.getSnapshot();
-@@ -1493,7 +1619,7 @@ window.__ModuleLoader__.load({
+@@ -935,9 +1079,15 @@ window.__ModuleLoader__.load({
+ 					return;
+ 				}
+ 				const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal]);
+-				let sessionId;
+-				if (summary !== void 0 && workspace !== void 0 && summary.cwd === workspace.path && !workspaces.archivedSessionIds.includes(summary.id)) sessionId = await this.reuseBlank(workspace.workspaceId, summary.id);
+ 				let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId);
++				const legacy = target !== void 0 && this.legacyDefaultPath(target);
++				if (legacy) {
++					const preferred = await this.initializeDefaultWorkspace(navigation);
++					if (navigation.aborted) return;
++					if (preferred && legacy(preferred.path)) target = preferred.workspaceId;
++				}
++				let sessionId;
++				if (summary !== void 0 && workspace !== void 0 && workspace.workspaceId === target && summary.cwd === workspace.path && !workspaces.archivedSessionIds.includes(summary.id)) sessionId = await this.reuseBlank(workspace.workspaceId, summary.id);
+ 				if (target === void 0 && workspaces.items.length === 0 && sessions.ids.length === 0) {
+ 					const prepared = await this.initializeDefaultWorkspace(navigation);
+ 					if (navigation.aborted) return;
+@@ -1493,7 +1643,7 @@ window.__ModuleLoader__.load({
  		* @param props.t - Workspace-browser translation seat.
  		* @returns the result row.
  		*/
@@ -240,7 +279,7 @@ index 41a4591..ca0f8f3 100644
  			const selected = result.id === currentId;
  			const statuses = sessionStatuses(result, t);
  			const primaryStatus = statuses[0];
-@@ -1508,6 +1634,7 @@ window.__ModuleLoader__.load({
+@@ -1508,6 +1658,7 @@ window.__ModuleLoader__.load({
  				children: [(0, react_jsx_runtime.jsxs)("span", {
  					className: Rows_module_css_default.searchResultHeading,
  					children: [
@@ -248,7 +287,7 @@ index 41a4591..ca0f8f3 100644
  						(0, react_jsx_runtime.jsx)("span", {
  							className: Rows_module_css_default.slot,
  							children: !result.archived && primaryStatus.state !== "idle" && (0, react_jsx_runtime.jsx)(SessionStatusDots, { statuses })
-@@ -1568,7 +1695,7 @@ window.__ModuleLoader__.load({
+@@ -1568,7 +1719,7 @@ window.__ModuleLoader__.load({
  		* @param props.t - the browser root's locale seat.
  		* @returns the session row.
  		*/
@@ -257,7 +296,7 @@ index 41a4591..ca0f8f3 100644
  			const row = node;
  			const title = displayTitle(node, t);
  			const selected = node.id === currentId;
-@@ -1597,6 +1724,11 @@ window.__ModuleLoader__.load({
+@@ -1597,6 +1748,11 @@ window.__ModuleLoader__.load({
  					onClick: () => {
  						onOpen(node.id);
  					},
@@ -269,7 +308,7 @@ index 41a4591..ca0f8f3 100644
  					onPointerEnter: marquee.enter,
  					onPointerLeave: marquee.leave,
  					draggable,
-@@ -1620,11 +1752,12 @@ window.__ModuleLoader__.load({
+@@ -1620,11 +1776,12 @@ window.__ModuleLoader__.load({
  					children: [
  						(0, react_jsx_runtime.jsx)("span", {
  							className: Rows_module_css_default.slot,
@@ -283,7 +322,7 @@ index 41a4591..ca0f8f3 100644
  							onDoubleClick: row.blank ? void 0 : (e) => {
  								e.stopPropagation();
  								onRenameRequest(node.id, row.title);
-@@ -1660,7 +1793,9 @@ window.__ModuleLoader__.load({
+@@ -1660,7 +1817,9 @@ window.__ModuleLoader__.load({
  								}),
  								children: renderSlot("sidebar.workspaces.session.menu.item", {
  									sessionId: node.id,
@@ -294,7 +333,7 @@ index 41a4591..ca0f8f3 100644
  								}, { hookContext: menuOpenState })
  							}), renderSlot("sidebar.workspaces.session.row.action", {
  								sessionId: node.id,
-@@ -2313,7 +2448,7 @@ window.__ModuleLoader__.load({
+@@ -2313,7 +2472,7 @@ window.__ModuleLoader__.load({
  			});
  		}
  		/** The scrolling session tree; unmounting drops the sessions subscription and local row limits. */
@@ -303,7 +342,7 @@ index 41a4591..ca0f8f3 100644
  			const panelActive = usePanelInfo((info) => info.activePanelId !== null);
  			const statuses = useSessionStatus((s) => s);
  			const current = panelActive ? void 0 : Object.values(list.byId).find((session) => (session.retainedBy.mainView ?? 0) > 0)?.id;
-@@ -2588,6 +2723,8 @@ window.__ModuleLoader__.load({
+@@ -2588,6 +2747,8 @@ window.__ModuleLoader__.load({
  								onOpen: open,
  								onRenameRequest: onSessionRenameRequest,
  								renderSlot,
@@ -312,7 +351,7 @@ index 41a4591..ca0f8f3 100644
  								onReveal: node.id === revealSessionId && group.key === revealGroup ? () => {
  									onSessionRevealed(node.id);
  								} : void 0,
-@@ -2636,7 +2773,7 @@ window.__ModuleLoader__.load({
+@@ -2636,7 +2797,7 @@ window.__ModuleLoader__.load({
  			});
  		}
  		/** The flat "In one list" body: every session is one draggable top-level row. */
@@ -321,7 +360,7 @@ index 41a4591..ca0f8f3 100644
  			const panelActive = usePanelInfo((info) => info.activePanelId !== null);
  			const statuses = useSessionStatus((s) => s);
  			const rows = (0, react.useMemo)(() => deriveFlat(list, sessionIds, rowState, statuses), [
-@@ -2677,8 +2814,10 @@ window.__ModuleLoader__.load({
+@@ -2677,8 +2838,10 @@ window.__ModuleLoader__.load({
  							currentId,
  							now,
  							onOpen: open,
@@ -334,7 +373,7 @@ index 41a4591..ca0f8f3 100644
  							onReveal: node.id === revealSessionId ? () => {
  								onSessionRevealed(node.id);
  							} : void 0,
-@@ -2722,9 +2861,8 @@ window.__ModuleLoader__.load({
+@@ -2722,9 +2885,8 @@ window.__ModuleLoader__.load({
  			});
  		}
  		/** Flat search body: local metadata matches plus the current Host result page. */
@@ -345,7 +384,7 @@ index 41a4591..ca0f8f3 100644
  			const statuses = useSessionStatus((s) => s);
  			const currentRemote = remote.query === query ? remote : {
  				query,
-@@ -2758,6 +2896,7 @@ window.__ModuleLoader__.load({
+@@ -2758,6 +2920,7 @@ window.__ModuleLoader__.load({
  								currentId,
  								onOpen: open,
  								onUnarchive,
@@ -353,7 +392,7 @@ index 41a4591..ca0f8f3 100644
  								t
  							}, result.id))
  						}),
-@@ -2790,19 +2929,27 @@ window.__ModuleLoader__.load({
+@@ -2790,19 +2953,27 @@ window.__ModuleLoader__.load({
  		* @param props - composed slot props (shell owner share + store + injected actions).
  		* @returns the region element tree.
  		*/
@@ -385,7 +424,7 @@ index 41a4591..ca0f8f3 100644
  			const workspacePhase = useWorkspaces((state) => state.phase);
  			const workspaceStreamState = useWorkspaces((state) => state.state);
  			const archivedSessionIds = useWorkspaces((state) => state.archivedSessionIds);
-@@ -2813,6 +2960,11 @@ window.__ModuleLoader__.load({
+@@ -2813,6 +2984,11 @@ window.__ModuleLoader__.load({
  			const archivedFilter = useStore((s) => s.archivedFilter ?? "default");
  			const groupExpansion = useStore((s) => s.groupExpansion);
  			const sessionOrderByAccount = useStore((s) => s.sessionOrderByAccount);
@@ -397,7 +436,7 @@ index 41a4591..ca0f8f3 100644
  			const guardedOpen = (sessionId) => {
  				if (archivedSessionIds.includes(sessionId)) {
  					notifyArchivedNotOpenable();
-@@ -3082,6 +3234,11 @@ window.__ModuleLoader__.load({
+@@ -3082,6 +3258,11 @@ window.__ModuleLoader__.load({
  			const [deleting, setDeleting] = (0, react.useState)(false);
  			const [deleteCommittedId, setDeleteCommittedId] = (0, react.useState)(null);
  			const [deleteError, setDeleteError] = (0, react.useState)(null);
@@ -409,7 +448,7 @@ index 41a4591..ca0f8f3 100644
  			(0, react.useEffect)(() => {
  				if (deleteCommittedId === null || workspaces.some((workspace) => workspace.workspaceId === deleteCommittedId)) return;
  				setDeleting(false);
-@@ -3096,6 +3253,10 @@ window.__ModuleLoader__.load({
+@@ -3096,6 +3277,10 @@ window.__ModuleLoader__.load({
  			const confirmDelete = () => {
  				/* v8 ignore next -- the Modal is absent without a target and its button is disabled while deleting. */
  				if (deleting || deleteTarget === null) return;
@@ -420,7 +459,7 @@ index 41a4591..ca0f8f3 100644
  				setDeleting(true);
  				setDeleteCommittedId(null);
  				setDeleteError(null);
-@@ -3248,7 +3409,7 @@ window.__ModuleLoader__.load({
+@@ -3248,7 +3433,7 @@ window.__ModuleLoader__.load({
  						className: WorkspaceBrowser_module_css_default.listArea,
  						children: wide && (normalizedQuery !== "" ? (0, react_jsx_runtime.jsx)(SearchResults, {
  							usePanelInfo,
@@ -429,7 +468,7 @@ index 41a4591..ca0f8f3 100644
  							useSessionStatus,
  							open: openSearchResult,
  							onUnarchive: onSessionUnarchive,
-@@ -3264,6 +3425,8 @@ window.__ModuleLoader__.load({
+@@ -3264,6 +3449,8 @@ window.__ModuleLoader__.load({
  							list,
  							sessionIds: orderedFlatSessionIds,
  							rowState,
@@ -438,7 +477,7 @@ index 41a4591..ca0f8f3 100644
  							onLeaveArchivedOnly: leaveArchivedOnly,
  							workspaceReady,
  							animationResetKey: `${groupBy}/${orderBy}/${archivedFilter}`,
-@@ -3291,6 +3454,8 @@ window.__ModuleLoader__.load({
+@@ -3291,6 +3478,8 @@ window.__ModuleLoader__.load({
  							setGroupExpanded: actions.setGroupExpanded,
  							setSessionOrder: saveSessionOrder,
  							rowState,
@@ -447,7 +486,7 @@ index 41a4591..ca0f8f3 100644
  							onLeaveArchivedOnly: leaveArchivedOnly,
  							startSession,
  							open: guardedOpen,
-@@ -3310,7 +3475,8 @@ window.__ModuleLoader__.load({
+@@ -3310,7 +3499,8 @@ window.__ModuleLoader__.load({
  							onDeleteRequest: (workspaceId, title) => {
  								setDeleteTarget({
  									workspaceId,
@@ -457,7 +496,7 @@ index 41a4591..ca0f8f3 100644
  								});
  								setDeleteError(null);
  							}
-@@ -3967,6 +4133,7 @@ window.__ModuleLoader__.load({
+@@ -3967,6 +4157,7 @@ window.__ModuleLoader__.load({
  			"status.compact.planReview": "计划待审",
  			"status.compact.answer": "待回答",
  			"status.completed": "已完成",
@@ -465,7 +504,7 @@ index 41a4591..ca0f8f3 100644
  			"hover.created": "创建于 {time}",
  			"hover.copied": "已复制",
  			"date.ymd": "{y}年{m}月{d}日",
-@@ -4082,6 +4249,7 @@ window.__ModuleLoader__.load({
+@@ -4082,6 +4273,7 @@ window.__ModuleLoader__.load({
  			"status.compact.planReview": "Plan review",
  			"status.compact.answer": "Answer",
  			"status.completed": "Completed",
@@ -473,7 +512,7 @@ index 41a4591..ca0f8f3 100644
  			"hover.created": "Created {time}",
  			"hover.copied": "Copied",
  			"date.ymd": "{y}-{m}-{d}",
-@@ -4257,6 +4425,8 @@ window.__ModuleLoader__.load({
+@@ -4257,6 +4449,8 @@ window.__ModuleLoader__.load({
  				}
  			});
  			const browserInjected = () => ({
@@ -482,7 +521,7 @@ index 41a4591..ca0f8f3 100644
  				startSession: (workspaceId) => {
  					uiWorkspace.startSession(workspaceId);
  				},
-@@ -4271,7 +4441,7 @@ window.__ModuleLoader__.load({
+@@ -4271,7 +4465,7 @@ window.__ModuleLoader__.load({
  					await workspaces.rename(workspaceId, title);
  				},
  				deleteWorkspace: async (workspaceId) => {
@@ -491,7 +530,7 @@ index 41a4591..ca0f8f3 100644
  				},
  				insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
  					await workspaces.insertBefore(workspaceId, beforeWorkspaceId);
-@@ -4288,6 +4458,8 @@ window.__ModuleLoader__.load({
+@@ -4288,6 +4482,8 @@ window.__ModuleLoader__.load({
  				hooks: {
  					directoryFlow: browserFlowSource,
  					hostInfo,
