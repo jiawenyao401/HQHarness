@@ -1,0 +1,418 @@
+--- a/apps/cli/src/oa_cli/expense_journal.py
++++ b/apps/cli/src/oa_cli/expense_journal.py
+@@ -1,9 +1,10 @@
+ """Atomic task journals and process locks."""
+
+-import fcntl
+ import json
+ import os
+ import tempfile
+ from pathlib import Path
++
++from ._desktop_io import exclusive_lock, replace_private_file
+
+
+@@ -15,14 +16,10 @@
+     try:
+         with os.fdopen(fd, "w", encoding="utf-8") as stream:
+-            os.fchmod(stream.fileno(), 0o600)
++            if os.name != "nt":
++                os.fchmod(stream.fileno(), 0o600)
+             json.dump(value, stream, ensure_ascii=False, indent=2)
+             stream.flush()
+             os.fsync(stream.fileno())
+-        os.replace(temporary, path)
+-        directory_fd = os.open(path.parent, os.O_RDONLY)
+-        try:
+-            os.fsync(directory_fd)
+-        finally:
+-            os.close(directory_fd)
++        replace_private_file(temporary, path)
+     finally:
+         if os.path.exists(temporary):
+@@ -49,5 +46,5 @@
+         self.lock = os.fdopen(fd, "r+")
+         try:
+-            fcntl.flock(fd, fcntl.LOCK_EX)
++            exclusive_lock(fd)
+             if self.path.exists():
+                 self.state = json.loads(self.path.read_text())
+@@ -95,5 +92,5 @@
+         self.lock = os.fdopen(fd, "r+")
+         try:
+-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++            exclusive_lock(fd, wait=False)
+             if self.path.exists():
+                 self.state = json.loads(self.path.read_text())
+--- a/apps/cli/src/oa_cli/invoice_guard.py
++++ b/apps/cli/src/oa_cli/invoice_guard.py
+@@ -1,5 +1,4 @@
+ """Fail-closed remote invoice checks and durable same-runtime reservations."""
+
+-import fcntl
+ import hashlib
+ import json
+@@ -9,4 +8,5 @@
+ from pathlib import Path
+
++from ._desktop_io import exclusive_lock
+ from .expense_journal import atomic_json
+
+@@ -215,5 +215,5 @@
+             lock = stack.enter_context(os.fdopen(fd, "r+"))
+             try:
+-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
++                exclusive_lock(lock.fileno(), wait=False)
+             except BlockingIOError as exc:
+                 raise InvoiceBlocked(
+--- a/apps/cli/src/oa_cli/expense_times.py
++++ b/apps/cli/src/oa_cli/expense_times.py
+@@ -105,7 +105,7 @@
+             continue
+         try:
+-            descriptor = os.open(
+-                item["path"], os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
+-            )
++            from ._desktop_io import open_regular
++
++            descriptor = open_regular(item["path"])
+             with os.fdopen(descriptor, "rb") as stream:
+                 metadata = os.fstat(stream.fileno())
+--- a/apps/cli/src/oa_cli/expense_materials.py
++++ b/apps/cli/src/oa_cli/expense_materials.py
+@@ -118,4 +118,4 @@
+     document = backend.PdfReader(BytesIO(data), strict=True)
+-    if document.is_encrypted:
++    if document.is_encrypted and not document.decrypt(""):
+         return _result("UNREADABLE_LOCAL", "pdf", issues=["PDF_ENCRYPTED"])
+     attachments = document.attachments
+@@ -156,4 +156,5 @@
+     except (ImportError, OSError, ValueError):
+         pass  # Parent wall-clock timeout remains active on every platform.
++    sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "site-packages"))
+     for name, parser in (("pypdf", _pdf_pypdf), ("pymupdf", _pdf_pymupdf)):
+         try:
+@@ -174,5 +175,6 @@
+     try:
+         completed = subprocess.run(
+-            [sys.executable, str(Path(__file__).resolve()), "--pdf-worker"],
++            [sys.executable, "-I", "-B", "-X", "utf8", str(Path(__file__).resolve()), "--pdf-worker"],
++            env={"SystemRoot": os.environ["SystemRoot"]} if os.name == "nt" else {},
+             input=data,
+             capture_output=True,
+@@ -232,5 +233,7 @@
+ def read_regular(path: Path, limit: int) -> bytes:
+     """Read a bounded regular file without following links or blocking on FIFOs."""
+-    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
++    from oa_cli._desktop_io import open_regular
++
++    descriptor = open_regular(path)
+     with os.fdopen(descriptor, "rb") as stream:
+         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+@@ -341,4 +344,7 @@
+     path = Path(path)
+     digest = ""
++    # The POSIX cache uses descriptor-relative, owner-only file operations.
++    if os.name == "nt":
++        cache_dir = None
+     cache_hit = False
+     cache_unsafe = False
+--- a/skill/common/oa-script-runtime/scripts/expense_materials.py
++++ b/skill/common/oa-script-runtime/scripts/expense_materials.py
+@@ -118,4 +118,4 @@
+     document = backend.PdfReader(BytesIO(data), strict=True)
+-    if document.is_encrypted:
++    if document.is_encrypted and not document.decrypt(""):
+         return _result("UNREADABLE_LOCAL", "pdf", issues=["PDF_ENCRYPTED"])
+     attachments = document.attachments
+@@ -148,5 +148,8 @@
+ def _generation_dependencies():
+     """Resolve only this installed artifact's verified generation dependency root."""
+-    location = Path(__file__).absolute()
++    location = Path(__file__).resolve()
++    desktop = location.parents[5]
++    if (desktop / "worker.py").is_file() and (desktop / "manifest.json").is_file():
++        return desktop / "site-packages"
+     for parent in location.parents:
+         if parent.name != "artifacts":
+@@ -240,10 +243,10 @@
+     """Apply a hard wall-clock boundary to PDF parsing, including decompression."""
+     try:
+         completed = subprocess.run(
+-            [sys.executable, "-I", "-B", str(Path(__file__).resolve()), "--pdf-worker"],
++            [sys.executable, "-I", "-B", "-X", "utf8", str(Path(__file__).resolve()), "--pdf-worker"],
+             input=data,
+             capture_output=True,
+             timeout=PDF_TIMEOUT_SECONDS,
+             check=False,
+-            env={"PATH": os.defpath, "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1"},
++            env={"SystemRoot": os.environ["SystemRoot"]} if os.name == "nt" else {},
+         )
+@@ -300,5 +303,7 @@
+ def read_regular(path: Path, limit: int) -> bytes:
+     """Read a bounded regular file without following links or blocking on FIFOs."""
+-    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
++    from oa_cli._desktop_io import open_regular
++
++    descriptor = open_regular(path)
+     with os.fdopen(descriptor, "rb") as stream:
+         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+@@ -409,4 +414,7 @@
+     path = Path(path)
+     digest = ""
++    # The POSIX cache uses descriptor-relative, owner-only file operations.
++    if os.name == "nt":
++        cache_dir = None
+     cache_hit = False
+     cache_unsafe = False
+--- a/packages/sdk/src/oa_sdk/_transport.py
++++ b/packages/sdk/src/oa_sdk/_transport.py
+@@ -66,4 +66,5 @@
+             base_url=config.base_url,
+             timeout=config.timeout,
++            trust_env=False,
+         )
+
+@@ -130,4 +131,5 @@
+         auth_required: bool = True,
+         check_errcode: bool = True,
++        timeout: float | None = None,
+     ) -> dict[str, Any]:
+         """Execute an HTTP request.
+@@ -169,4 +171,5 @@
+             files=files,
+             headers=headers,
++            **({"timeout": timeout} if timeout is not None else {}),
+         )
+         if check_errcode:
+--- a/packages/sdk/src/oa_sdk/api/invoice/service.py
++++ b/packages/sdk/src/oa_sdk/api/invoice/service.py
+@@ -8,11 +8,7 @@
+ from __future__ import annotations
+
+-import json
+-import os
+-import subprocess
+ import time
+ from pathlib import Path
+ from typing import Any
+-from urllib.parse import urlencode
+
+ from oa_sdk._config import OaConfig
+@@ -88,49 +84,21 @@
+         is_ordinary_attachment = ocr == "0"
+         if is_ordinary_attachment:
+-            query = urlencode({"access_token": token})
+-            url = (
+-                f"{self._config.base_url.rstrip('/')}{PATH_UPLOAD_COMMON_FILE}?{query}"
++            path = PATH_UPLOAD_COMMON_FILE
++            params = {"access_token": token}
++            fields = {"module": "document", "name": file_path.name, "userid": userid}
++        else:
++            path = PATH_UPLOAD_INVOICE_FILE
++            params = None
++            fields = {"access_token": token, "userid": userid, "ocr": ocr}
++        url = f"{self._config.base_url.rstrip('/')}{path}"
++        headers = {"tenantKey": effective_tenant_key} if effective_tenant_key else None
++        with file_path.open("rb") as stream:
++            result = self._transport.request(
++                "POST", path, params=params, data=fields, files={"file": (file_path.name, stream)},
++                headers=headers, auth_required=False, check_errcode=False,
++                timeout=max(120, self._config.timeout),
+             )
+-            form_fields = [
+-                "module=document",
+-                f"name={file_path.name}",
+-                f"userid={userid}",
+-                f"file=@{file_path}",
+-            ]
+-        else:
+-            url = f"{self._config.base_url.rstrip('/')}{PATH_UPLOAD_INVOICE_FILE}"
+-            form_fields = [
+-                f"access_token={token}",
+-                f"userid={userid}",
+-                f"ocr={ocr}",
+-                f"file=@{file_path}",
+-            ]
+-
+-        timeout = max(120, int(self._config.timeout))
+-        cmd = [
+-            "curl",
+-            "-sS",
+-            "--max-time",
+-            str(timeout),
+-            "-X",
+-            "POST",
+-            url,
+-        ]
+-        for field in form_fields:
+-            cmd.extend(["-F", field])
+-        if iface := os.environ.get("OA_BIND_INTERFACE", "").strip():
+-            cmd[1:1] = ["--interface", iface]
+-        if effective_tenant_key:
+-            cmd.extend(["-H", f"tenantKey: {effective_tenant_key}"])
+-
+-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+-        if proc.returncode != 0:
+-            detail = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
+-            raise OaError(f"curl upload failed (exit {proc.returncode}): {detail}")
+-
+-        try:
+-            result = json.loads(proc.stdout)
+-        except json.JSONDecodeError as exc:
+-            raise OaError(f"curl upload returned invalid JSON: {proc.stdout[:200]}") from exc
++        if not isinstance(result, dict):
++            raise OaError("invoice upload returned an invalid response")
+
+         message = result.get("message")
+--- a/packages/sdk/src/oa_sdk/api/workflow/service.py
++++ b/packages/sdk/src/oa_sdk/api/workflow/service.py
+@@ -7,10 +7,6 @@
+ from __future__ import annotations
+
+-import json
+-import os
+-import subprocess
+ from typing import Any, Literal
+
+ from oa_sdk._config import OaConfig
+-from oa_sdk._exceptions import OaApiError, OaError
+ from oa_sdk._transport import HttpTransport
+@@ -219,60 +216,4 @@
+         return req.model_dump(exclude_none=True, by_alias=True)
+
+-    def _post_json_with_optional_interface(
+-        self,
+-        path: str,
+-        payload: dict[str, Any],
+-        *,
+-        action_name: str,
+-    ) -> dict[str, Any]:
+-        iface = os.environ.get("OA_BIND_INTERFACE", "").strip()
+-        if not iface:
+-            return self._request("POST", path, json=payload)
+-
+-        token = self._transport.token_store.get_valid_access_token()
+-        url = f"{self._config.base_url.rstrip('/')}{path}?access_token={token}"
+-        timeout = max(120, int(self._config.timeout))
+-        cmd = [
+-            "curl",
+-            "-sS",
+-            "--max-time",
+-            str(timeout),
+-            "--interface",
+-            iface,
+-            "-X",
+-            "POST",
+-            url,
+-            "-H",
+-            "Content-Type: application/json",
+-            "-d",
+-            "@-",
+-        ]
+-
+-        proc = subprocess.run(
+-            cmd, input=json.dumps(payload), capture_output=True, text=True, check=False
+-        )
+-        if proc.returncode != 0:
+-            detail = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
+-            raise OaError(f"curl {action_name} failed (exit {proc.returncode}): {detail}")
+-
+-        try:
+-            result = json.loads(proc.stdout)
+-        except json.JSONDecodeError as exc:
+-            raise OaError(f"curl {action_name} returned invalid JSON: {proc.stdout[:200]}") from exc
+-
+-        errcode = str(
+-            result.get("errcode", "") or result.get("message", {}).get("errcode", "") or ""
+-        )
+-        if errcode and errcode != "0":
+-            errmsg = (
+-                result.get("errmsg") or result.get("message", {}).get("errmsg") or "unknown error"
+-            )
+-            safe_url = f"{self._config.base_url.rstrip('/')}{path}"
+-            raise OaApiError(errcode=errcode, errmsg=str(errmsg), url=safe_url)
+-
+-        return result
+-
+-    # ─── 1. Create / Save / Delete / Update ────────────────────────────
+-
+     def create_request(
+         self,
+@@ -292,9 +233,5 @@
+         """
+         req = CreateRequest(userid=userid, workflowId=workflow_id, **kwargs)
+-        data = self._post_json_with_optional_interface(
+-            PATH_CREATE_REQUEST_V1,
+-            self._dump(req),
+-            action_name="create_request",
+-        )
++        data = self._request("POST", PATH_CREATE_REQUEST_V1, json=self._dump(req))
+         return CreateRequestResponse.model_validate(data)
+
+@@ -356,8 +293,4 @@
+         """
+         req = SaveRequest(userid=userid, requestId=request_id, **kwargs)
+-        result = self._post_json_with_optional_interface(
+-            PATH_SAVE_REQUEST,
+-            self._dump(req),
+-            action_name="save_request",
+-        )
++        result = self._request("POST", PATH_SAVE_REQUEST, json=self._dump(req))
+         return CreateRequestResponse.model_validate(result)
+--- a/apps/cli/src/oa_cli/draft_verification.py
++++ b/apps/cli/src/oa_cli/draft_verification.py
+@@ -1,7 +1,4 @@
+ """Compare a saved OA form against the fields sent by the caller."""
+
+-import json
+-import os
+-import tempfile
+ from decimal import Decimal, InvalidOperation
+ from pathlib import Path
+@@ -9,18 +6,10 @@
+
+ from ._workflow_snapshot import _field_id, _option_list
++from .expense_journal import atomic_json
+
+
+ def write_job(path: Path, data: dict) -> None:
+     """Atomically retain recovery state in a private file before network writes."""
+-    fd, temporary = tempfile.mkstemp(prefix=".oa-job-", dir=path.parent)
+-    try:
+-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+-            json.dump(data, stream, ensure_ascii=False, indent=2)
+-            stream.flush()
+-            os.fsync(stream.fileno())
+-        os.replace(temporary, path)
+-    finally:
+-        if os.path.exists(temporary):
+-            os.unlink(temporary)
++    atomic_json(path, data)
+
+
+--- a/apps/cli/src/oa_cli/travel_complete.py
++++ b/apps/cli/src/oa_cli/travel_complete.py
+@@ -14,4 +14,5 @@
+ from uuid import uuid4
+
++from ._desktop_io import exclusive_lock
+ from ._output.errors import CliError
+ from ._summarize.invoice import summarize_valid
+@@ -58,15 +59,4 @@
+     with lock.open("a+b") as stream:
+         os.chmod(lock, 0o600)
+-        if os.name == "nt":
+-            import msvcrt
+-
+-            if stream.tell() == 0:
+-                stream.write(b"0")
+-                stream.flush()
+-            stream.seek(0)
+-            msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
+-        else:
+-            import fcntl
+-
+-            fcntl.flock(stream, fcntl.LOCK_EX)
++        exclusive_lock(stream.fileno())
+         yield

@@ -10,6 +10,10 @@ on:
         description: Deliver to a private draft when Actions artifact quota is unavailable
         type: boolean
         default: false
+      xasp_bundle:
+        description: Include the private XASP OA TEST runtime (requires private draft delivery)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,6 +30,7 @@ jobs:
     uses: ./.github/workflows/windows-acceptance-build.yml
     with:
       draft_delivery: false
+      xasp_bundle: ${{ github.event_name == 'workflow_dispatch' && inputs.xasp_bundle }}
 
   windows-draft:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.draft_delivery }}
@@ -34,3 +39,7 @@ jobs:
     uses: ./.github/workflows/windows-acceptance-build.yml
     with:
       draft_delivery: true
+      xasp_bundle: ${{ inputs.xasp_bundle }}
+    secrets:
+      XASP_CHECKOUT_TOKEN: ${{ secrets.XASP_CHECKOUT_TOKEN }}
+      XASP_CHECKOUT_KEY: ${{ secrets.XASP_CHECKOUT_KEY }}

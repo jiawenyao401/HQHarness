@@ -93,6 +93,9 @@ if (!dshEntryPath) {
       ? join(resources, 'office-runtime')
       : join(resources, '..', '.build', 'office-runtime')
     process.env.DSH_DESKTOP_OFFICE_CLI = join(resources, 'office-cli.mjs')
+    process.env.DSH_DESKTOP_OA_RESOURCES = archive
+      ? join(resources, 'xasp-runtime')
+      : join(resources, '..', '.build', 'xasp-runtime')
     registerHostModuleFallback(dshEntryPath)
     // Packages load through app.asar; the Office engine must resolve to its
     // unpacked directory so the OS can spawn it.

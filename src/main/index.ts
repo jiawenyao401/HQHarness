@@ -1,6 +1,7 @@
 import { PRODUCT_NAME } from '../shared/brand'
 import { DesktopAutomationService } from './automation/service'
 import { DesktopWpsService } from './wps/service'
+import { DesktopOaService } from './oa/service'
 import { huaqingSwitchEnvironment } from './huaqing-switch'
 import { applicationIdentity, applicationUserData } from './application-identity'
 import { resolveDesktopResourcePath } from './desktop-resources'
@@ -230,6 +231,7 @@ let tray: Tray | undefined
 let runtime: HarnessRuntime
 let desktopAutomation: DesktopAutomationService | undefined
 let desktopWps: DesktopWpsService | undefined
+let desktopOa: DesktopOaService | undefined
 let desktopStorageManager: DesktopStorageManager | undefined
 let windowStateManager: WindowStateManager | undefined
 let mobileBridge: LanMobileBridge
@@ -522,7 +524,10 @@ function configureAppIdentity(): void {
   app.setName(identity.name)
   // Keep a stable HQHarness root independent of product labels and upstream
   // DSH Desktop data. Credentials, sessions and profiles belong to this app.
-  app.setPath('userData', applicationUserData(app.getPath('appData'), developmentBuild, app.commandLine.getSwitchValue('user-data-dir')))
+  const override = app.commandLine.getSwitchValue('user-data-dir')
+  const userData = applicationUserData(app.getPath('appData'), developmentBuild, override)
+  app.setPath('userData', userData)
+  if (override) app.setAppLogsPath(join(userData, 'logs'))
 }
 
 async function syncNativeTheme(window: BrowserWindow): Promise<void> {
@@ -1107,7 +1112,7 @@ async function openHarness(
 }
 
 async function maybeImportWebHome(dshHome: string): Promise<void> {
-  if (startInSafeMode) return
+  if (startInSafeMode || app.commandLine.getSwitchValue('user-data-dir')) return
   const webHome = defaultWebHome()
   if (!await shouldOfferWebHomeImport(dshHome, webHome)) return
 
@@ -1462,17 +1467,20 @@ function launchHarness(): Promise<void> {
     maintenanceAllowedRestoreId = undefined
     runtime.note('[desktop] profile maintenance done')
     await refreshMigrationRecoveryLock(dshHome)
-    void auditInstalledLaunchAgents(dshHome)
-      .then(() => {
-        runtime.note('[desktop] LaunchAgent audit done')
-      })
-      .catch((error) => {
-        runtime.note(
-          `[desktop] LaunchAgent audit failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        )
-      })
+    // An explicit diagnostic profile never changes shared OS services.
+    if (!app.commandLine.getSwitchValue('user-data-dir')) {
+      void auditInstalledLaunchAgents(dshHome)
+        .then(() => {
+          runtime.note('[desktop] LaunchAgent audit done')
+        })
+        .catch((error) => {
+          runtime.note(
+            `[desktop] LaunchAgent audit failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        })
+    }
     desktopStorageManager?.switchProfile(join(dshHome, 'profiles', 'web'))
     runtime.note('[desktop] starting preset migrations')
     await migratePersonaPrefixesBeforeStart(dshHome)
@@ -3264,6 +3272,14 @@ async function bootstrap(): Promise<void> {
   desktopWps = new DesktopWpsService(join(app.getPath('userData'), 'wps'), () => mainWindow, harnessLocale)
   await desktopWps.start()
   desktopWps.registerIpc(assertTrustedMainWindowEvent)
+  desktopOa = new DesktopOaService(join(app.getPath('userData'), 'oa'), join(dshHome, 'attachments', 'v1'), () => mainWindow, harnessLocale)
+  const payloadRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), '.build')
+  try {
+    await desktopOa.start(join(payloadRoot, 'xasp-runtime'), join(payloadRoot, 'office-runtime'))
+  } catch {
+    console.warn('[desktop-oa] could not start the installed OA capability')
+  }
+  desktopOa.registerIpc(assertTrustedMainWindowEvent)
   desktopAutomation.onStopped = () => desktopWps?.stop()
   await desktopAutomation.start()
   desktopAutomation.registerIpc(assertTrustedMainWindowEvent)
@@ -3281,7 +3297,17 @@ async function bootstrap(): Promise<void> {
     // Keep the Harness origin stable across launches. These ports are separate
     // from the production/development mobile bridge ports (43137/43138).
     preferredPort: DEFAULT_HARNESS_PORT + (developmentBuild ? 1 : 0),
-    extraEnvironment: () => ({ ...desktopAutomation?.environment(), ...desktopWps?.environment(), ...huaqingSwitchEnvironment() }),
+    extraEnvironment: () => ({
+      ...desktopAutomation?.environment(),
+      ...desktopWps?.environment(),
+      ...desktopOa?.environment(),
+      ...huaqingSwitchEnvironment(),
+      // The Web UI may create its first workspace during startup. An explicit
+      // diagnostic profile keeps that workspace with its isolated user data.
+      DSH_DESKTOP_DOCUMENTS_DIRECTORY: app.commandLine.getSwitchValue('user-data-dir')
+        ? join(app.getPath('userData'), 'documents')
+        : ''
+    }),
     launchProcess: (executablePath, args, options) =>
       process.platform === 'darwin'
         ? launchDisclaimedUtilityProcess(utilityProcess, args, options, {
@@ -3656,7 +3682,7 @@ if (isDaemonLaunch(process.env, process.platform)) {
       tray = undefined
       repairAgentService?.dispose()
       repairAgentService = undefined
-      void Promise.all([runtime.stop(), mobileBridge?.stop(), desktopAutomation?.close(), desktopWps?.close()]).finally(() => app.quit())
+      void Promise.all([runtime.stop(), mobileBridge?.stop(), desktopAutomation?.close(), desktopWps?.close(), desktopOa?.close()]).finally(() => app.quit())
     })
   }
 }

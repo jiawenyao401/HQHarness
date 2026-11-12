@@ -18,6 +18,10 @@
     desktopSurface: true
     trustedHosts: !!js ctx.webStartup.trustedHosts
 
+- id: workspace-controller
+  config:
+    documentsDirectory: !!js process.env.DSH_DESKTOP_DOCUMENTS_DIRECTORY || undefined
+
 # Harness's runtime warnings and errors live only in an in-memory logger ring,
 # and session activation failures only reach the client. Bridge both to
 # stderr so harness.log keeps them. First, so it hears as much as it can.
@@ -76,6 +80,11 @@
       name: hqharness-automation
     - id: hqharness-wps
       name: hqharness-wps
+
+    - id: hqharness-oa
+      name: hqharness-oa
+      config:
+        resources: !!js process.env.DSH_DESKTOP_OA_RESOURCES
 
     - id: hqharness-model-access
       name: hqharness-model-access

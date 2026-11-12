@@ -1,0 +1,38 @@
+name: Prepare private XASP input
+description: Check out the exact XASP revision for an authorized private build
+inputs:
+  read-token:
+    description: Fine-grained token with Contents read access to hqzyai/xasp
+    required: false
+    default: ''
+  read-key:
+    description: Private SSH key for a read-only deploy key on hqzyai/xasp
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Resolve locked XASP revision
+      id: lock
+      shell: bash
+      env:
+        XASP_READ_TOKEN_CONFIGURED: ${{ inputs.read-token != '' }}
+        XASP_READ_KEY_CONFIGURED: ${{ inputs.read-key != '' }}
+      run: node .github/scripts/xasp-ci.mjs resolve-revision
+    - name: Check out locked XASP revision
+      uses: actions/checkout@v4
+      with:
+        repository: hqzyai/xasp
+        ref: ${{ steps.lock.outputs.revision }}
+        # Checkout requires a token input even when the SSH key authenticates the fetch.
+        token: ${{ inputs.read-token || github.token }}
+        ssh-key: ${{ inputs.read-key }}
+        ssh-strict: true
+        path: .build/xasp-source
+        fetch-depth: 1
+        persist-credentials: false
+    - name: Enable required XASP bundle
+      shell: bash
+      env:
+        XASP_PIN: ${{ steps.lock.outputs.revision }}
+      run: node .github/scripts/xasp-ci.mjs enable-bundle

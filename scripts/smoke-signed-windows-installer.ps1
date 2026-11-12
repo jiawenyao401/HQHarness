@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$Installer,
-  [Parameter(Mandatory = $true)][string]$PublisherName
+  [Parameter(Mandatory = $true)][string]$PublisherName,
+  [switch]$VerifyXasp
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,6 +83,15 @@ function Assert-OfficeRuntime([string]$executable) {
   if ($LASTEXITCODE -ne 0) { throw 'Installed Office runtime validation failed.' }
 }
 
+function Assert-XaspRuntime([string]$executable) {
+  $resources = Join-Path (Split-Path $executable) 'resources'
+  $env:XASP_REQUIRE_BUNDLE = '1'
+  & node (Join-Path $PSScriptRoot 'xasp-runtime/verify.mjs') $resources
+  if ($LASTEXITCODE -ne 0) { throw 'Installed xasp OA runtime validation failed.' }
+  & node (Join-Path $PSScriptRoot 'xasp-runtime/verify-installed.mjs') $executable
+  if ($LASTEXITCODE -ne 0) { throw 'Installed xasp OA desktop activation verification failed.' }
+}
+
 function Assert-Starts([string]$executable) {
   $logPaths = @(Get-HarnessLogPaths)
   $launchTime = (Get-Date).ToUniversalTime().AddSeconds(-2)
@@ -138,6 +148,7 @@ $secondDirectory = Join-Path $root 'install-two'
 $firstExecutable = Install-At $firstDirectory
 Assert-InstalledPeSignatures $firstDirectory
 Assert-OfficeRuntime $firstExecutable
+if ($VerifyXasp) { Assert-XaspRuntime $firstExecutable }
 Assert-Starts $firstExecutable
 
 $profileMarker = Join-Path $script:activeAppDataRoot 'hqharness\harness\signed-smoke-marker'
@@ -167,6 +178,7 @@ if ((Get-Content -LiteralPath $profileMarker -Raw).Trim() -ne 'keep-user-data') 
 if (@(Get-ChildItem -Path "$firstDirectory.old-*" -ErrorAction SilentlyContinue).Count -ne 0) {
   throw 'Successful upgrade left an old application backup directory.'
 }
+if ($VerifyXasp) { Assert-XaspRuntime $firstExecutable }
 Assert-Starts $firstExecutable
 
 $secondExecutable = Install-At $secondDirectory

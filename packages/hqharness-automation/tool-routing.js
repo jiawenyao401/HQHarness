@@ -132,6 +132,13 @@ export function createAutomationRoutingPolicy(onAudit = () => {}, registry, tool
       if (stopped && !(action === 'status' || (!state.computer.blocked && stopped === 'WPS_UNKNOWN_OUTCOME' && WPS_RECOVERY.has(action)))) return `HQ_ROUTING_STOPPED: Local document automation is blocked (${stopped}). Do not replay it through WPS or another tool. Unknown WPS writes require recover with explicit user confirmation.`
     }
     const trustedWps = isTrustedWpsExecution(tools, exec)
+    const oaDenial = () => state.mode === 'gui-required'
+      ? 'HQ_ROUTING_PREFERRED: The user requires GUI operation. Use the authorized OA interface.'
+      : undefined
+    if (exec.name === OA_TOOL_NAME) {
+      if (!isTrustedOaExecution(tools, exec)) return 'HQ_ROUTING_UNTRUSTED: The visible OA tool is not the installed built-in definition.'
+      return oaDenial()
+    }
     if (trustedWps || exec.name === WPS_ROUTING_TOOL_NAME) {
       if (!trustedWps) return 'HQ_ROUTING_UNTRUSTED: The visible WPS tool is not the installed built-in definition. Do not impersonate it or use another transport.'
       const action = record(exec.arguments) ? exec.arguments.action : undefined
@@ -153,6 +160,7 @@ export function createAutomationRoutingPolicy(onAudit = () => {}, registry, tool
     const transport = ptc ? structuredTransport(exec.arguments) : undefined
     if (transport && AUTOMATION.has(transport.name)) return undefined
     if (transport && isTrustedWpsExecution(tools, { ...exec, name: transport.name })) return wpsDenial(transport.arguments.action)
+    if (transport && isTrustedOaExecution(tools, { ...exec, name: transport.name })) return oaDenial()
     const code = ptc || CODE_TOOLS.has(exec.name)
     if (!required && !code) return undefined
     const blocked = required ? state[required].blocked ?? (required === 'computer' ? state.wps.blocked : undefined) : state.browser.blocked ?? state.computer.blocked ?? state.wps.blocked
@@ -220,3 +228,4 @@ export function registerAutomationToolRouting(ctx) {
   })
 }
 import { isTrustedWpsExecution, WPS_ROUTING_TOOL_NAME } from './wps-routing.js'
+import { isTrustedOaExecution, OA_TOOL_NAME } from './oa-routing.js'

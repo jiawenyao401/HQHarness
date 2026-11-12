@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAutomationRoutingPolicy, registerAutomationToolRouting, routingDirective } from '../packages/hqharness-automation/tool-routing.js'
+import { markTrustedOaDefinition, OA_TOOL_NAME } from '../packages/hqharness-automation/oa-routing.js'
 
 const user = text => ({ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] })
 const success = value => ({ isError: false, value })
@@ -53,6 +54,23 @@ describe('positive human routing directives', () => {
 })
 
 describe('execution routing', () => {
+  it('permits a single installed OA tool in PTC and still respects GUI-only instructions', () => {
+    const definition = { name: OA_TOOL_NAME }
+    const release = markTrustedOaDefinition(definition)
+    const agent = { id: 'oa-owner', session: { header: { id: 'oa-owner' } } }
+    const policy = createAutomationRoutingPolicy(undefined, undefined, { get: () => definition })
+    const wrapper = program(agent, 'return await tools.oa_business({"action":"instructions","workflow":"oa-travel-expense"});')
+    try {
+      policy.claim({ agent, turn: 1, message: user('请检查差旅报销材料') })
+      expect(policy.guard(wrapper)).toBeUndefined()
+      expect(policy.guard(program(agent, 'return await tools.oa_business({action:"instructions"});'))).toContain('HQ_ROUTING_DIRECT_REQUIRED')
+      policy.claim({ agent, turn: 2, message: user('工具模式：全程界面。') })
+      expect(policy.guard(wrapper)).toContain('HQ_ROUTING_PREFERRED')
+    } finally {
+      release()
+    }
+    expect(policy.guard(execution(agent, OA_TOOL_NAME))).toContain('HQ_ROUTING_UNTRUSTED')
+  })
   it.each(['web_search', 'web_fetch', 'read', 'write', 'edit', 'apply_patch', 'glob', 'grep', 'read_image', 'str_replace_editor'])('requires the corresponding GUI for %s by default', name => {
     expect(fixture().call(name)).toContain('HQ_ROUTING_PREFERRED')
   })

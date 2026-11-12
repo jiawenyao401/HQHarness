@@ -1,4 +1,7 @@
-param([Parameter(Mandatory = $true)][string]$Installer)
+param(
+  [Parameter(Mandatory = $true)][string]$Installer,
+  [switch]$VerifyXasp
+)
 
 $ErrorActionPreference = 'Stop'
 $installerPath = (Resolve-Path -LiteralPath $Installer).Path
@@ -40,6 +43,13 @@ foreach ($phase in @('first install', 'same-path upgrade')) {
     throw "Missing bundled runtime after $phase"
   }
   Assert-Workspace
+}
+
+if ($VerifyXasp) {
+  & node (Join-Path $PSScriptRoot 'xasp-runtime/verify.mjs') (Join-Path $appDirectory 'resources')
+  if ($LASTEXITCODE -ne 0) { throw 'Installed XASP runtime verification failed.' }
+  & node (Join-Path $PSScriptRoot 'xasp-runtime/verify-installed.mjs') (Join-Path $appDirectory 'HQHarness.exe')
+  if ($LASTEXITCODE -ne 0) { throw 'Installed XASP desktop activation verification failed.' }
 }
 
 $uninstaller = Join-Path $appDirectory 'Uninstall HQHarness.exe'

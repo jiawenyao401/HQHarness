@@ -180,6 +180,12 @@ contextBridge.exposeInMainWorld('hqWps', {
   stop: () => ipcRenderer.invoke('hq:wps:stop')
 })
 
+contextBridge.exposeInMainWorld('hqOa', {
+  status: () => ipcRenderer.invoke('hq:oa:status'),
+  configure: (configuration: unknown) => ipcRenderer.invoke('hq:oa:configure', configuration),
+  clear: () => ipcRenderer.invoke('hq:oa:clear')
+})
+
 contextBridge.exposeInMainWorld('hqModelSource', 'huaqing-switch')
 
 contextBridge.exposeInMainWorld('hqTeamModelAccess', {

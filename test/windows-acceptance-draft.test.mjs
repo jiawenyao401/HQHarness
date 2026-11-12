@@ -1,10 +1,13 @@
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, expect, it } from 'vitest'
 import { parse } from 'yaml'
 import { deliverWindowsAcceptanceDraft, requirePrivateDestination } from '../.github/scripts/deliver-windows-acceptance-draft.mjs'
+import { requirePrivateXaspRelease, verifyWindowsSigningInput } from '../.github/scripts/xasp-ci.mjs'
 
 const roots = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
@@ -126,6 +129,7 @@ it('keeps write permission exclusive to manual delivery and preserves every nati
   const entry = parse(await readFile(new URL('windows-acceptance.yml', workflowRoot), 'utf8'))
   const shared = parse(await readFile(new URL('windows-acceptance-build.yml', workflowRoot), 'utf8'))
   expect(entry.on.workflow_dispatch.inputs.draft_delivery).toMatchObject({ type: 'boolean', default: false })
+  expect(entry.on.workflow_dispatch.inputs.xasp_bundle).toMatchObject({ type: 'boolean', default: false })
   expect(entry.permissions).toEqual({ contents: 'read' })
   expect(entry.jobs.windows.permissions).toEqual({ contents: 'read' })
   expect(entry.jobs['windows-draft'].permissions).toEqual({ contents: 'write' })
@@ -134,6 +138,11 @@ it('keeps write permission exclusive to manual delivery and preserves every nati
   expect(entry.jobs.windows.uses).toBe(entry.jobs['windows-draft'].uses)
   expect(entry.jobs.windows.with.draft_delivery).toBe(false)
   expect(entry.jobs['windows-draft'].with.draft_delivery).toBe(true)
+  expect(entry.jobs.windows.secrets).toBeUndefined()
+  expect(entry.jobs['windows-draft'].secrets).toEqual({
+    XASP_CHECKOUT_TOKEN: '${{ secrets.XASP_CHECKOUT_TOKEN }}',
+    XASP_CHECKOUT_KEY: '${{ secrets.XASP_CHECKOUT_KEY }}'
+  })
   expect(shared.permissions).toBeUndefined()
   const steps = shared.jobs.windows.steps
   const commands = steps.map(step => step.run).filter(Boolean).join('\n')
@@ -144,8 +153,154 @@ it('keeps write permission exclusive to manual delivery and preserves every nati
   }
   const uploadSteps = steps.filter(step => step.uses === 'actions/upload-artifact@v4')
   expect(uploadSteps).toHaveLength(3)
-  expect(uploadSteps.every(step => step.if.includes('!inputs.draft_delivery'))).toBe(true)
+  expect(uploadSteps.every(step => step.if.includes('!inputs.draft_delivery') && step.if.includes('!inputs.xasp_bundle'))).toBe(true)
+  const requirePrivate = steps.find(step => step.name === 'Require private draft delivery for XASP')
+  const verifyPrivate = steps.find(step => step.name === 'Verify private draft delivery destination')
+  const checkout = steps.find(step => step.uses === './.github/actions/prepare-private-xasp')
+  expect(requirePrivate.if).toBe('inputs.xasp_bundle && !inputs.draft_delivery')
+  expect(steps.indexOf(requirePrivate)).toBeLessThan(steps.indexOf(checkout))
+  expect(steps.indexOf(verifyPrivate)).toBeLessThan(steps.indexOf(checkout))
+  expect(checkout).toMatchObject({
+    if: 'inputs.xasp_bundle',
+    with: {
+      'read-token': '${{ secrets.XASP_CHECKOUT_TOKEN }}',
+      'read-key': '${{ secrets.XASP_CHECKOUT_KEY }}'
+    }
+  })
+  const action = parse(await readFile(new URL('../.github/actions/prepare-private-xasp/action.yml', import.meta.url), 'utf8'))
+  expect(action.runs.steps[0].env).toEqual({
+    XASP_READ_TOKEN_CONFIGURED: "${{ inputs.read-token != '' }}",
+    XASP_READ_KEY_CONFIGURED: "${{ inputs.read-key != '' }}"
+  })
+  const sourceCheckout = action.runs.steps.find(step => step.with?.repository === 'hqzyai/xasp')
+  expect(sourceCheckout).toMatchObject({
+    uses: 'actions/checkout@v4',
+    with: {
+      ref: '${{ steps.lock.outputs.revision }}',
+      token: '${{ inputs.read-token || github.token }}',
+      'ssh-key': '${{ inputs.read-key }}',
+      'ssh-strict': true,
+      'persist-credentials': false
+    }
+  })
+  expect(action.runs.steps.map(step => step.run ?? step.uses)).toEqual([
+    'node .github/scripts/xasp-ci.mjs resolve-revision',
+    'actions/checkout@v4',
+    'node .github/scripts/xasp-ci.mjs enable-bundle'
+  ])
+  expect(commands).toContain("-VerifyXasp:($env:XASP_REQUIRE_BUNDLE -eq '1')")
+  expect(commands).toContain('installedActivation =')
   const delivery = steps.find(step => step.run === 'node .github/scripts/deliver-windows-acceptance-draft.mjs')
   expect(delivery.if).toBe('inputs.draft_delivery')
   expect(steps.indexOf(delivery)).toBeGreaterThan(steps.findIndex(step => step.name === 'Record exact artifact identity and outstanding manual acceptance'))
+})
+
+it.each([
+  ['no credential', false, false, false],
+  ['token only', true, false, true],
+  ['SSH key only', false, true, true],
+  ['both credentials', true, true, false]
+])('only emits the pinned XASP revision for an unambiguous checkout configuration (%s)', async (_label, token, key, allowed) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'hqharness-xasp-checkout-'))
+  roots.push(root)
+  const output = path.join(root, 'step-output')
+  await writeFile(output, '')
+  const cli = fileURLToPath(new URL('../.github/scripts/xasp-ci.mjs', import.meta.url))
+  const result = spawnSync(process.execPath, [cli, 'resolve-revision'], {
+    encoding: 'utf8',
+    env: { ...process.env, GITHUB_OUTPUT: output,
+      XASP_READ_TOKEN_CONFIGURED: String(token), XASP_READ_KEY_CONFIGURED: String(key) }
+  })
+  if (allowed) {
+    expect(result.stderr).toBe('')
+    expect(result.status).toBe(0)
+    const { revision } = JSON.parse(await readFile(new URL('../scripts/xasp-runtime/lock.json', import.meta.url), 'utf8'))
+    expect(await readFile(output, 'utf8')).toBe(`revision=${revision}\n`)
+  } else {
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('Configure exactly one of XASP_CHECKOUT_KEY or XASP_CHECKOUT_TOKEN')
+    expect(await readFile(output, 'utf8')).toBe('')
+  }
+})
+
+it('authorizes XASP signed artifacts only in the configured private repository', () => {
+  const brand = { releaseRepository: env.GITHUB_REPOSITORY }
+  const release = { ...env, RELEASE_MODE: 'signed' }
+  const calls = []
+  const privateRepo = { full_name: env.GITHUB_REPOSITORY, private: true, visibility: 'private' }
+  const gh = args => { calls.push(args); return JSON.stringify(privateRepo) }
+  expect(() => requirePrivateXaspRelease(release, brand, gh)).not.toThrow()
+  expect(() => requirePrivateXaspRelease({ ...release, RELEASE_MODE: 'prerelease' }, brand, gh)).not.toThrow()
+  for (const mode of ['release', 'development', 'resign', 'smoke']) {
+    expect(() => requirePrivateXaspRelease({ ...release, RELEASE_MODE: mode }, brand, gh)).toThrow('manual signed or prerelease')
+  }
+  expect(() => requirePrivateXaspRelease({ ...release, GITHUB_EVENT_NAME: 'push' }, brand, gh)).toThrow('manual signed or prerelease')
+  expect(() => requirePrivateXaspRelease(release, { releaseRepository: 'elsewhere/repo' }, gh)).toThrow('must match')
+  expect(calls).toEqual([['api', `repos/${env.GITHUB_REPOSITORY}`], ['api', `repos/${env.GITHUB_REPOSITORY}`]])
+  for (const mismatch of [{ private: false, visibility: 'public' }, { visibility: 'internal' }, { full_name: 'elsewhere/repo' }]) {
+    expect(() => requirePrivateXaspRelease(release, brand, () => JSON.stringify({ ...privateRepo, ...mismatch }))).toThrow('exact configured private repository')
+  }
+})
+
+it('refuses to sign a Windows candidate with an unexpected, absent or mismatched XASP payload', async () => {
+  const resources = await mkdtemp(path.join(tmpdir(), 'hqharness-sign-xasp-'))
+  roots.push(resources)
+  await expect(verifyWindowsSigningInput(resources, false)).resolves.toBeUndefined()
+  await expect(verifyWindowsSigningInput(resources, true)).rejects.toThrow('ENOENT')
+  const runtime = path.join(resources, 'xasp-runtime')
+  await mkdir(runtime)
+  const manifest = path.join(runtime, 'manifest.json')
+  const { revision } = JSON.parse(await readFile(new URL('../scripts/xasp-runtime/lock.json', import.meta.url), 'utf8'))
+  const enabled = { format: 1, enabled: true, revision, platform: 'win32', arch: 'x64' }
+  await writeFile(manifest, JSON.stringify(enabled))
+  await expect(verifyWindowsSigningInput(resources, true)).resolves.toBeUndefined()
+  await expect(verifyWindowsSigningInput(resources, false)).rejects.toThrow('requested XASP bundle state')
+  for (const mismatch of [{ revision: '0'.repeat(40) }, { platform: 'darwin' }, { arch: 'arm64' }]) {
+    await writeFile(manifest, JSON.stringify({ ...enabled, ...mismatch }))
+    await expect(verifyWindowsSigningInput(resources, true)).rejects.toThrow('locked revision and Windows x64 target')
+  }
+})
+
+it('requires private validation before native XASP release builds and installation before delivery', async () => {
+  const release = parse(await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8'))
+  expect(release.on.workflow_dispatch.inputs.xasp_bundle).toMatchObject({ type: 'boolean', default: false })
+  const validate = release.jobs['validate-dispatch'].steps.find(step => step.run?.includes('verify-private-release'))
+  expect(validate.if).toBe("github.event_name == 'workflow_dispatch' && inputs.xasp_bundle")
+  for (const name of ['macos', 'windows-x64']) {
+    const job = release.jobs[name]
+    expect(job.needs).toBe('validate-dispatch')
+    const checkout = job.steps.find(step => step.uses === './.github/actions/prepare-private-xasp')
+    expect(checkout.if).toBe(validate.if)
+    expect(checkout.with).toEqual({
+      'read-token': '${{ secrets.XASP_CHECKOUT_TOKEN }}',
+      'read-key': '${{ secrets.XASP_CHECKOUT_KEY }}'
+    })
+    expect(job.steps.indexOf(checkout)).toBeLessThan(job.steps.findIndex(step => step.run === 'npm run build'))
+  }
+  const mac = release.jobs.macos.steps
+  const macProbe = mac.findIndex(step => step.run?.includes('scripts/xasp-runtime/verify-installed.mjs'))
+  expect(macProbe).toBeGreaterThanOrEqual(0)
+  expect(mac[macProbe].run).toContain('hdiutil attach -readonly')
+  expect(macProbe).toBeLessThan(mac.findIndex(step => step.uses === 'actions/upload-artifact@v4'))
+  const smoke = release.jobs['smoke-signed-windows'].steps
+  const windowsProbe = smoke.findIndex(step => step.run?.includes('-VerifyXasp:($env:VERIFY_XASP'))
+  expect(windowsProbe).toBeGreaterThan(smoke.findIndex(step => step.run === 'npm ci --ignore-scripts'))
+  expect(smoke[windowsProbe].env.VERIFY_XASP).toBe("${{ inputs.xasp_bundle && '1' || '' }}")
+  const publish = release.jobs['publish-prerelease']
+  expect(publish.if).toContain("needs.smoke-signed-windows.result == 'success'")
+  const upload = publish.steps.find(step => step.run?.includes('gh release upload')).run
+  expect(upload.indexOf('verify-private-release')).toBeGreaterThanOrEqual(0)
+  expect(upload.indexOf('verify-private-release')).toBeLessThan(upload.indexOf('gh release upload'))
+  expect(upload).toContain(`[ "$existing_prerelease" != 'true' ]`)
+})
+
+it('checks the installed OA desktop after native runtime verification in both Windows smoke paths', async () => {
+  for (const name of ['smoke-windows-documents-install.ps1', 'smoke-signed-windows-installer.ps1']) {
+    const script = await readFile(new URL(`../scripts/${name}`, import.meta.url), 'utf8')
+    const native = script.indexOf('xasp-runtime/verify.mjs')
+    const activation = script.indexOf('xasp-runtime/verify-installed.mjs')
+    expect(native).toBeGreaterThanOrEqual(0)
+    expect(activation).toBeGreaterThan(native)
+    expect(script.slice(activation, activation + 250)).toContain("if ($LASTEXITCODE -ne 0) { throw")
+  }
 })

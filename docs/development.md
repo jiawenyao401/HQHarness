@@ -79,6 +79,8 @@ When upgrading Harness:
 
 ## Packaging
 
+For the private distribution that bundles xasp OA skills, see the [OA build and acceptance instructions](oa-desktop.md).
+
 Harness includes architecture-specific native dependencies. Build each installer on the operating system and architecture where it will run.
 
 ```bash

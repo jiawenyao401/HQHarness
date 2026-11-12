@@ -45,6 +45,10 @@ on:
         description: Release run ID containing an existing windows-x64-unsigned artifact (resign mode)
         required: false
         type: string
+      xasp_bundle:
+        description: Include the private XASP OA TEST runtime in a signed or prerelease build
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -125,6 +129,12 @@ jobs:
           RELEASE_TARGET: ${{ inputs.target || 'all' }}
           HQHARN_WINDOWS_PUBLISHER_NAME: ${{ vars.HQHARN_WINDOWS_PUBLISHER_NAME }}
         run: node .github/scripts/validate-release-config.mjs
+      - name: Verify private XASP release destination
+        if: github.event_name == 'workflow_dispatch' && inputs.xasp_bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_MODE: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || inputs.mode }}
+        run: node .github/scripts/xasp-ci.mjs verify-private-release
 
   macos:
     name: macOS ${{ matrix.label }}
@@ -167,8 +177,16 @@ jobs:
       - name: Set app version from signed version
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'signed' && inputs.signed_version != ''
         run: npm version --no-git-tag-version --allow-same-version "${{ inputs.signed_version }}"
+      - name: Prepare pinned private XASP input
+        if: github.event_name == 'workflow_dispatch' && inputs.xasp_bundle
+        uses: ./.github/actions/prepare-private-xasp
+        with:
+          read-token: ${{ secrets.XASP_CHECKOUT_TOKEN }}
+          read-key: ${{ secrets.XASP_CHECKOUT_KEY }}
       - run: npm ci
       - run: npm run build
+        env:
+          XASP_TEST_WORKFLOW_CONFIG: ${{ inputs.xasp_bundle && vars.XASP_TEST_WORKFLOW_CONFIG || '' }}
       - run: npx --no-install vitest run
       - name: Verify built-in automation in native Chromium
         run: npm run test:automation:native
@@ -272,6 +290,14 @@ jobs:
           codesign --verify --verbose=2 dist/hqharness-mac-${{ matrix.arch }}.dmg
           spctl --assess --type open --context context:primary-signature --verbose=4 dist/hqharness-mac-${{ matrix.arch }}.dmg
           xcrun stapler validate dist/hqharness-mac-${{ matrix.arch }}.dmg
+      - name: Verify OA desktop from the signed macOS installer
+        if: github.event_name == 'workflow_dispatch' && inputs.xasp_bundle
+        run: |
+          set -euo pipefail
+          mountpoint=$(mktemp -d "$RUNNER_TEMP/hqharness-xasp.XXXXXX")
+          hdiutil attach -readonly -nobrowse -mountpoint "$mountpoint" dist/hqharness-mac-${{ matrix.arch }}.dmg
+          trap 'hdiutil detach "$mountpoint" && rmdir "$mountpoint"' EXIT
+          node scripts/xasp-runtime/verify-installed.mjs "$mountpoint/HQHarness.app/Contents/MacOS/HQHarness"
       - uses: actions/upload-artifact@v4
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'signed' || inputs.mode == 'prerelease'))
         with:
@@ -323,8 +349,16 @@ jobs:
       - name: Set app version from signed version
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'signed' && inputs.signed_version != ''
         run: npm version --no-git-tag-version --allow-same-version "${{ inputs.signed_version }}"
+      - name: Prepare pinned private XASP input
+        if: github.event_name == 'workflow_dispatch' && inputs.xasp_bundle
+        uses: ./.github/actions/prepare-private-xasp
+        with:
+          read-token: ${{ secrets.XASP_CHECKOUT_TOKEN }}
+          read-key: ${{ secrets.XASP_CHECKOUT_KEY }}
       - run: npm ci
       - run: npm run build
+        env:
+          XASP_TEST_WORKFLOW_CONFIG: ${{ inputs.xasp_bundle && vars.XASP_TEST_WORKFLOW_CONFIG || '' }}
       - name: Run Windows tests with progress
         run: npx --no-install vitest run --reporter=verbose
         timeout-minutes: 15
@@ -590,6 +624,8 @@ jobs:
           unzip -q "$WINDOWS_SIGNING_WORK_DIR/unsigned.zip" -d "$WINDOWS_SIGNING_WORK_DIR/release"
           rm "$WINDOWS_SIGNING_WORK_DIR/unsigned.zip"
       - name: Extract and verify unsigned Windows application
+        env:
+          XASP_EXPECTED: ${{ inputs.xasp_bundle && '1' || '' }}
         run: |
           set -euo pipefail
           test -s "$WINDOWS_SIGNING_WORK_DIR/release/win-unpacked.tar.gz"
@@ -607,6 +643,7 @@ jobs:
           }
           console.log(`Verified unsigned Windows application ${actual.productName} ${actual.version}`)
           NODE
+          node .github/scripts/xasp-ci.mjs verify-windows-signing-input "$WINDOWS_SIGNING_WORK_DIR/release/win-unpacked/resources"
       - name: Download and verify Jsign
         timeout-minutes: 5
         env:
@@ -706,6 +743,12 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        if: inputs.xasp_bundle
+        with:
+          node-version: 24
+      - if: inputs.xasp_bundle
+        run: npm ci --ignore-scripts
       - uses: actions/download-artifact@v4
         with:
           name: windows-x64
@@ -713,13 +756,15 @@ jobs:
       - name: Verify signed installation and upgrade
         env:
           HQHARN_WINDOWS_PUBLISHER_NAME: ${{ vars.HQHARN_WINDOWS_PUBLISHER_NAME }}
+          VERIFY_XASP: ${{ inputs.xasp_bundle && '1' || '' }}
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem signed-windows -File -Filter 'Huaqing-Desktop-*.exe')
           if ($installers.Count -ne 1) { throw 'Expected exactly one final Windows installer.' }
           ./scripts/smoke-signed-windows-installer.ps1 `
             -Installer $installers[0].FullName `
-            -PublisherName $env:HQHARN_WINDOWS_PUBLISHER_NAME
+            -PublisherName $env:HQHARN_WINDOWS_PUBLISHER_NAME `
+            -VerifyXasp:($env:VERIFY_XASP -eq '1')
 
   smoke-existing-signed-windows:
     name: Recheck existing signed Windows installer
@@ -872,8 +917,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.prerelease_tag }}
+          RELEASE_MODE: ${{ inputs.mode }}
+          VERIFY_XASP_PRIVATE_DESTINATION: ${{ inputs.xasp_bundle && '1' || '' }}
         run: |
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          set -euo pipefail
+          if [ "$VERIFY_XASP_PRIVATE_DESTINATION" = '1' ]; then
+            node .github/scripts/xasp-ci.mjs verify-private-release
+          fi
+          if existing_prerelease=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq '.isPrerelease' 2>/dev/null); then
+            if [ "$VERIFY_XASP_PRIVATE_DESTINATION" = '1' ] && [ "$existing_prerelease" != 'true' ]; then
+              echo '::error::XASP artifacts may only be added to an existing prerelease.'
+              exit 1
+            fi
             gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$RELEASE_TAG" release-assets/* \

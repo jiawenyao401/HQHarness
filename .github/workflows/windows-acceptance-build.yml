@@ -6,6 +6,16 @@ on:
       draft_delivery:
         type: boolean
         default: false
+      xasp_bundle:
+        type: boolean
+        default: false
+    secrets:
+      XASP_CHECKOUT_TOKEN:
+        description: Read-only contents access to hqzyai/xasp for opted-in private XASP packages
+        required: false
+      XASP_CHECKOUT_KEY:
+        description: Private SSH key for a read-only deploy key on hqzyai/xasp
+        required: false
 
 # The caller supplies contents:read for normal builds and contents:write only
 # for an explicitly requested manual private draft delivery.
@@ -19,6 +29,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Require private draft delivery for XASP
+        if: inputs.xasp_bundle && !inputs.draft_delivery
+        shell: pwsh
+        run: throw 'XASP bundles require draft_delivery in the private HQHarness repository.'
       - uses: actions/setup-node@v4
         id: node
         with:
@@ -45,6 +59,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HQHARNESS_DRAFT_DELIVERY: 'true'
         run: node .github/scripts/deliver-windows-acceptance-draft.mjs --check
+      - name: Prepare pinned private XASP input
+        if: inputs.xasp_bundle
+        uses: ./.github/actions/prepare-private-xasp
+        with:
+          read-token: ${{ secrets.XASP_CHECKOUT_TOKEN }}
+          read-key: ${{ secrets.XASP_CHECKOUT_KEY }}
       - name: Check native build disk space
         shell: pwsh
         run: |
@@ -70,6 +90,8 @@ jobs:
           node scripts/automation-window-smoke.mjs 2>&1 | Tee-Object -FilePath .build/automation-acceptance/windows-uia-local-execution.log
           if ($LASTEXITCODE -ne 0) { throw 'Native Windows UIA local-execution acceptance failed.' }
       - name: Run all regression tests
+        env:
+          XASP_TEST_WORKFLOW_CONFIG: ${{ inputs.xasp_bundle && vars.XASP_TEST_WORKFLOW_CONFIG || '' }}
         run: npm test -- --maxWorkers=4
       - name: Qualify Windows native binaries and real Agent tool execution
         run: node scripts/automation-native-package-smoke.mjs
@@ -77,6 +99,8 @@ jobs:
         run: node scripts/automation-consent-smoke.mjs
       - name: Build unsigned acceptance installer on Windows
         shell: pwsh
+        env:
+          XASP_TEST_WORKFLOW_CONFIG: ${{ inputs.xasp_bundle && vars.XASP_TEST_WORKFLOW_CONFIG || '' }}
         run: npm run package:win
       - name: Verify SDK and real Agent tools from the actual packaged dependency closure
         shell: pwsh
@@ -86,7 +110,7 @@ jobs:
         run: |
           $installers = @(Get-ChildItem dist -File -Filter 'Huaqing-Desktop-*.exe')
           if ($installers.Count -ne 1) { throw 'Expected exactly one acceptance installer.' }
-          ./scripts/smoke-windows-documents-install.ps1 -Installer ($installers[0].FullName)
+          ./scripts/smoke-windows-documents-install.ps1 -Installer ($installers[0].FullName) -VerifyXasp:($env:XASP_REQUIRE_BUNDLE -eq '1')
       - name: Record exact artifact identity and outstanding manual acceptance
         shell: pwsh
         run: |
@@ -119,6 +143,14 @@ jobs:
             sha256 = $hash.Hash.ToLowerInvariant()
             signed = $false
             documentsInstall = 'passed (native Windows default path, upgrade and uninstall preserve the sibling workspace)'
+            xaspRuntime = $(if ($env:XASP_REQUIRE_BUNDLE -eq '1') {
+              [ordered]@{
+                revision = (Get-Content scripts/xasp-runtime/lock.json -Raw | ConvertFrom-Json).revision
+                installedVerification = 'passed (native Python, local business checks, multipart transport fixture and journal locking)'
+                installedActivation = 'passed (isolated installed desktop, authenticated skill catalog, registered client scripts and visible OA originals button)'
+                liveOaTest = 'pending user acceptance'
+              }
+            } else { $null })
             installedApp = 'pending user acceptance'
             computerInput = 'pending user acceptance'
             browserUse = 'pending user acceptance'
@@ -130,7 +162,7 @@ jobs:
           HQHARNESS_DRAFT_DELIVERY: 'true'
         run: node .github/scripts/deliver-windows-acceptance-draft.mjs
       - uses: actions/upload-artifact@v4
-        if: ${{ !inputs.draft_delivery }}
+        if: ${{ !inputs.draft_delivery && !inputs.xasp_bundle }}
         with:
           name: hqharness-windows-x64-acceptance
           retention-days: 14
@@ -139,7 +171,7 @@ jobs:
             dist/Huaqing-Desktop-*.exe
             dist/windows-acceptance.json
       - name: Preserve native automation acceptance logs
-        if: ${{ always() && !inputs.draft_delivery }}
+        if: ${{ always() && !inputs.draft_delivery && !inputs.xasp_bundle }}
         uses: actions/upload-artifact@v4
         with:
           name: hqharness-windows-automation-acceptance-logs
@@ -147,7 +179,7 @@ jobs:
           if-no-files-found: warn
           path: .build/automation-acceptance/*.log
       - name: Preserve installer diagnostics on a failed build
-        if: ${{ failure() && !inputs.draft_delivery }}
+        if: ${{ failure() && !inputs.draft_delivery && !inputs.xasp_bundle }}
         uses: actions/upload-artifact@v4
         with:
           name: hqharness-windows-failed-build-diagnostics

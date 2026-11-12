@@ -14,4 +14,6 @@ module.exports = async function afterPack(context) {
   await verifyPackagedWps(context)
   await verifyPackagedPptRuntime(context)
   await verifyOfficeRuntime(context)
+  const { verifyXaspRuntime } = await import('./xasp-runtime/verify.mjs')
+  await verifyXaspRuntime(resourcesDir)
 }

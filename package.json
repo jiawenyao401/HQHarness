@@ -16,8 +16,8 @@
   ],
   "scripts": {
     "postinstall": "patch-package && npm run ui:prepare && install-electron --no",
-    "dev": "npm run ui:prepare && npm run office:prepare && npm run ppt:build && electron-vite dev",
-    "build": "npm run ui:prepare && npm run office:prepare && npm run ppt:build && electron-vite build",
+    "dev": "npm run ui:prepare && npm run office:prepare && npm run xasp:prepare && npm run ppt:build && electron-vite dev",
+    "build": "npm run ui:prepare && npm run office:prepare && npm run xasp:prepare && npm run ppt:build && electron-vite build",
     "icons:generate": "node scripts/generate-app-icons.mjs",
     "loader:generate": "node scripts/generate-loader-gifs.mjs",
     "preview": "electron-vite preview",
@@ -34,9 +34,10 @@
     "package:mac:x64": "node scripts/verify-target.mjs darwin x64 && npm run build && electron-builder --mac --x64 --publish never",
     "package:win": "node scripts/verify-target.mjs win32 x64 && npm run build && node scripts/electron-builder-windows.mjs --win --x64 --publish never && node scripts/finalize-windows-release.mjs",
     "ppt:build": "node scripts/prepare-ppt-runtime.mjs",
-    "pretest": "npm run ui:prepare && npm run office:prepare && npm run ppt:build",
-    "pretest:watch": "npm run ui:prepare && npm run office:prepare && npm run ppt:build",
+    "pretest": "npm run ui:prepare && npm run office:prepare && npm run xasp:prepare && npm run ppt:build",
+    "pretest:watch": "npm run ui:prepare && npm run office:prepare && npm run xasp:prepare && npm run ppt:build",
     "office:prepare": "node scripts/office-runtime/prepare.mjs",
+    "xasp:prepare": "node scripts/xasp-runtime/prepare.mjs",
     "brand:prepare": "node scripts/prepare-brand-assets.mjs",
     "test:automation:native": "node scripts/automation-native-smoke.mjs",
     "ui:build": "node scripts/build-harness-web.mjs",
@@ -288,6 +289,7 @@
     "electron-updater": "^6.8.9",
     "hqharness-automation": "file:packages/hqharness-automation",
     "hqharness-model-access": "file:packages/hqharness-model-access",
+    "hqharness-oa": "file:packages/hqharness-oa",
     "lucide-react": "1.57.0",
     "pnpm": "10.34.5",
     "qrcode": "^1.5.4",
@@ -494,6 +496,10 @@
       {
         "from": ".build/office-runtime",
         "to": "office-runtime"
+      },
+      {
+        "from": ".build/xasp-runtime",
+        "to": "xasp-runtime"
       },
       {
         "from": "build/office-cli.mjs",

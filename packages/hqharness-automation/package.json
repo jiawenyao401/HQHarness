@@ -9,7 +9,8 @@
     ".": "./index.js",
     "./client": "./client.js",
     "./package.json": "./package.json",
-    "./wps-routing": "./wps-routing.js"
+    "./wps-routing": "./wps-routing.js",
+    "./oa-routing": "./oa-routing.js"
   },
   "files": [
     "index.js",
@@ -17,7 +18,8 @@
     "tool-routing.js",
     "client.js",
     "README.md",
-    "wps-routing.js"
+    "wps-routing.js",
+    "oa-routing.js"
   ],
   "license": "MIT",
   "dsh": {
