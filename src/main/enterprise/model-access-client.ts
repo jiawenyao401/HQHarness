@@ -14,7 +14,7 @@ export class AgentOsClient {
     } catch { throw new ModelAccessError('NETWORK', 'Cannot reach the AgentOS service') }
     if (!response.ok) {
       await response.body?.cancel()
-      const code = response.status === 401 ? 'LOGIN_REQUIRED' : response.status === 403 ? 'ACCESS_DENIED' : response.status === 404 ? 'SERVICE_UNAVAILABLE' : response.status === 409 ? 'LEASE_CONFLICT' : response.status === 429 ? 'RATE_LIMIT' : 'SERVICE_ERROR'
+      const code = response.status === 401 ? 'LOGIN_REQUIRED' : response.status === 403 ? 'ACCESS_DENIED' : response.status === 404 ? 'SERVICE_UNAVAILABLE' : response.status === 409 ? 'LEASE_CONFLICT' : response.status === 410 ? 'CLAIM_ENDED' : response.status === 429 ? 'RATE_LIMIT' : 'SERVICE_ERROR'
       throw new ModelAccessError(code, `AgentOS request failed (${response.status})`, response.status)
     }
     if (!response.headers.get('content-type')?.includes('application/json')) { await response.body?.cancel(); throw new ModelAccessError('INVALID_RESPONSE', 'AgentOS returned an invalid response') }

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { LEASE_MS, ModelAccessError, RENEW_WINDOW_MS, shouldAutoRenew, validateModelAccessConfiguration, validateModelLease, type ModelLease } from '../src/shared/model-access'
+import { HANDOFF_WINDOW_MS, LEASE_MS, ModelAccessError, RENEW_WINDOW_MS, shouldAcquireLease, shouldAutoRenew, validateModelAccessConfiguration, validateModelLease, type ModelLease } from '../src/shared/model-access'
 import { ModelAccessStore, type CredentialEncryption } from '../src/main/enterprise/model-access-store'
 import { ModelAccessManager } from '../src/main/enterprise/model-access-manager'
 
@@ -31,14 +31,19 @@ async function setup() {
   const directory = await mkdtemp(join(tmpdir(), 'hq-model-access-test-'))
   directories.push(directory)
   const path = join(directory, 'credentials.bin'), cipher = encryption(), store = new ModelAccessStore(path, cipher)
+  const grants = new Map<string, { lease: ModelLease; key: string }>()
   let issued: ModelLease | undefined
   let key = ''
   let renewals = 0
   let failRenew = false
   let offline = false
   let rejectAccountOnce = false
+  let loseClaimOnce = false
+  let claimStatus = 200
+  let transportAttempts = 0
   const calls: { path: string; body: Record<string, unknown>; authorization: string | null }[] = []
   const fetcher: typeof fetch = async (input, init) => {
+    transportAttempts++
     if (offline) throw new Error('offline')
     const path = new URL(String(input)).pathname
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}
@@ -51,19 +56,45 @@ async function setup() {
       if (rejectAccountOnce) { rejectAccountOnce = false; return Response.json({}, { status: 401 }) }
       return Response.json({ lease: issued ? { ...issued, server_time: new Date().toISOString(), ...(Date.parse(issued.expires_at) <= Date.now() ? { status: 'expired' } : {}) } : null, server_time: new Date().toISOString() })
     }
-    if (path.endsWith('/leases') && init?.method === 'POST') { issued ??= leaseAt(Date.now()); key ||= 'sk-test-virtual-key-never-in-renderer'; return Response.json({ ...issued, virtual_key: key }) }
+    if (path.endsWith('/leases') && init?.method === 'POST') {
+      if (claimStatus !== 200) return Response.json({}, { status: claimStatus })
+      const requestId = String(body.request_id)
+      let grant = grants.get(requestId)
+      if (grant && (grant.lease.status === 'failed' || Date.parse(grant.lease.expires_at) <= Date.now())) return Response.json({}, { status: 410 })
+      if (!grant) {
+        grant = { lease: { ...leaseAt(Date.now()), id: `lease-test-${String(grants.size + 1).padStart(4, '0')}` }, key: `sk-test-virtual-key-never-in-renderer-${grants.size + 1}` }
+        grants.set(requestId, grant)
+      }
+      issued = grant.lease; key = grant.key
+      if (loseClaimOnce) { loseClaimOnce = false; throw new Error('ack lost') }
+      return Response.json({ ...issued, server_time: new Date().toISOString(), virtual_key: key })
+    }
+    const grant = [...grants.values()].find(value => path.includes(`/leases/${value.lease.id}`))
     if (path.endsWith('/renew')) {
       if (failRenew) return Response.json({ detail: 'unavailable' }, { status: 503 })
-      if (!issued) throw new Error('missing fake lease')
-      if (!issued.auto_renewed) renewals++
-      issued = { ...issued, auto_renewed: true, expires_at: new Date(Date.parse(issued.initial_expires_at) + LEASE_MS).toISOString(), server_time: new Date().toISOString() }
-      return Response.json(issued)
+      if (!grant) throw new Error('missing fake lease')
+      if (!grant.lease.auto_renewed) renewals++
+      grant.lease = { ...grant.lease, auto_renewed: true, expires_at: new Date(Date.parse(grant.lease.initial_expires_at) + LEASE_MS).toISOString(), server_time: new Date().toISOString() }
+      if (issued?.id === grant.lease.id) issued = grant.lease
+      return Response.json(grant.lease)
     }
-    if (path.includes('/leases/') && init?.method === 'DELETE') { if (issued) issued = { ...issued, status: 'revoked' }; return Response.json(issued) }
+    if (grant && init?.method === 'DELETE') {
+      grant.lease = { ...grant.lease, status: 'revoked' }
+      if (issued?.id === grant.lease.id) issued = grant.lease
+      return Response.json(grant.lease)
+    }
     return Response.json({}, { status: 404 })
   }
   const cancel = vi.fn(), manager = new ModelAccessManager(store, cancel, fetcher)
-  return { manager, path, cipher, store, fetcher, calls, cancel, get key() { return key }, get renewals() { return renewals }, offline(value: boolean) { offline = value }, failRenew(value: boolean) { failRenew = value }, expireAccount() { rejectAccountOnce = true } }
+  return {
+    manager, path, cipher, store, fetcher, calls, cancel, grants,
+    get key() { return key }, get renewals() { return renewals },
+    get transportAttempts() { return transportAttempts },
+    offline(value: boolean) { offline = value }, failRenew(value: boolean) { failRenew = value },
+    expireAccount() { rejectAccountOnce = true }, loseClaim() { loseClaimOnce = true }, rejectClaims(status: number) { claimStatus = status },
+    revoke() { if (issued) issued.status = 'revoked' },
+    compensate() { if (issued) issued.status = 'failed' }
+  }
 }
 async function signIn(env: Awaited<ReturnType<typeof setup>>) {
   await env.manager.configure({ baseUrl: 'https://agentos.test', allowInsecureTest: false })
@@ -93,6 +124,19 @@ describe('finite team model policy', () => {
     for (const changes of [{ expires_at: new Date(100_000 + LEASE_MS * 3).toISOString() }, { auto_renewed: true }, { inference_path: 'https://other.test' }, { model: { ...lease.model, input_modalities: ['unknown'] } }]) {
       expect(() => validateModelLease({ ...lease, ...changes })).toThrow()
     }
+  })
+  it('reacquires expired access even when idle, and prepares a successor only for recent use', () => {
+    const lease = leaseAt(100_000)
+    const expiry = Date.parse(lease.expires_at)
+    expect(shouldAcquireLease(undefined, expiry, 0, 0)).toBe(true)
+    expect(shouldAcquireLease(lease, expiry, 0, 0)).toBe(true)
+    expect(shouldAcquireLease(lease, expiry - HANDOFF_WINDOW_MS, 0, 0)).toBe(false)
+    expect(shouldAcquireLease(lease, expiry - HANDOFF_WINDOW_MS, 0, 1)).toBe(false)
+    const renewed = { ...lease, auto_renewed: true, expires_at: new Date(expiry + LEASE_MS).toISOString() }
+    expect(shouldAcquireLease(renewed, expiry + LEASE_MS - HANDOFF_WINDOW_MS, 0, 1)).toBe(true)
+    expect(shouldAcquireLease({ ...renewed, status: 'renewing' }, expiry + LEASE_MS - HANDOFF_WINDOW_MS, 0, 1)).toBe(false)
+    expect(shouldAcquireLease(lease, expiry - HANDOFF_WINDOW_MS - 1, expiry - 1000, 1)).toBe(false)
+    expect(shouldAcquireLease({ ...lease, status: 'revoked' }, expiry + 1, expiry, 1)).toBe(false)
   })
 })
 
@@ -143,17 +187,19 @@ describe('desktop credential ownership and renewal', () => {
     expect(access.lease.id).toBe(original?.id)
     expect(access.lease.expires_at).toBe('2026-01-01T06:00:00.000Z')
     expect(env.calls.some(call => call.path === '/auth/refresh')).toBe(true)
-    vi.setSystemTime(new Date('2026-01-01T05:55:00Z'))
+    vi.setSystemTime(new Date('2026-01-01T05:53:00Z'))
     await env.manager.beginRequest(); env.manager.finishRequest()
     expect(env.renewals).toBe(1)
     vi.setSystemTime(new Date('2026-01-01T06:00:00Z'))
-    await expect(env.manager.beginRequest()).rejects.toMatchObject({ code: 'LEASE_EXPIRED' })
+    const next = await env.manager.beginRequest(); env.manager.finishRequest()
+    expect(next.lease.id).not.toBe(original?.id)
+    expect(next.lease.expires_at).toBe('2026-01-01T09:00:00.000Z')
   })
   it('keeps the original grant usable when the extension service fails', async () => {
     const env = await setup()
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
     await signIn(env); await env.manager.claim()
-    vi.setSystemTime(new Date('2026-01-01T02:55:00Z')); env.failRenew(true)
+    vi.setSystemTime(new Date('2026-01-01T02:53:00Z')); env.failRenew(true)
     const access = await env.manager.beginRequest(); env.manager.finishRequest()
     expect(access.lease.expires_at).toBe('2026-01-01T03:00:00.000Z')
     expect((await env.manager.status()).error).toBe('SERVICE_ERROR')
@@ -179,6 +225,145 @@ describe('desktop credential ownership and renewal', () => {
     await env.manager.login({ username: 'test-employee', password: 'test-password' })
     expect((await env.manager.status()).pendingRevocation).toBe(false)
     expect(env.calls.some(call => call.path.endsWith('/lease-test-0001'))).toBe(true)
+  })
+  it('automatically claims on startup refresh and after idle expiry without a manual claim', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env)
+    await env.manager.refresh()
+    const first = (await env.manager.status()).lease
+    vi.setSystemTime(new Date('2026-01-01T03:00:00Z'))
+    await Promise.all([env.manager.tick(), env.manager.tick(), env.manager.refresh()])
+    const next = await env.manager.status()
+    expect(next.usable).toBe(true)
+    expect(next.lease?.id).not.toBe(first?.id)
+    expect(next.lease?.expires_at).toBe('2026-01-01T06:00:00.000Z')
+    expect(env.grants.size).toBe(2)
+    expect(env.renewals).toBe(0)
+  })
+  it('hands off before final expiry without revoking or cancelling an in-flight old request', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); await env.manager.refresh()
+    vi.setSystemTime(new Date('2026-01-01T02:51:00Z'))
+    await env.manager.beginRequest(); env.manager.finishRequest()
+    vi.setSystemTime(new Date('2026-01-01T05:53:00Z'))
+    const original = await env.manager.beginRequest()
+    vi.setSystemTime(new Date('2026-01-01T05:54:00Z'))
+    await env.manager.tick()
+    const successor = await env.manager.status()
+    expect(successor.lease?.id).not.toBe(original.lease.id)
+    expect(successor.usable).toBe(true)
+    expect(env.calls.at(-1)?.body.predecessor_id).toBe(original.lease.id)
+    expect(env.calls.some(call => call.path.endsWith(original.lease.id) && call.body.installation_id)).toBe(false)
+    expect(env.cancel).not.toHaveBeenCalled()
+    env.manager.finishRequest()
+    await env.manager.tick()
+    expect(env.calls.some(call => call.path.endsWith(original.lease.id))).toBe(true)
+    expect((await env.store.read()).retiringLeaseIds).toEqual([])
+  })
+  it('recovers a lost handoff acknowledgement after restart using the same durable request id', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); await env.manager.refresh()
+    vi.setSystemTime(new Date('2026-01-01T02:51:00Z'))
+    await env.manager.beginRequest(); env.manager.finishRequest()
+    vi.setSystemTime(new Date('2026-01-01T05:53:00Z'))
+    await env.manager.beginRequest(); env.manager.finishRequest()
+    vi.setSystemTime(new Date('2026-01-01T05:55:00Z')); env.loseClaim()
+    await expect(env.manager.refresh()).rejects.toMatchObject({ code: 'NETWORK' })
+    const pending = (await env.store.read()).claimRequestId
+    expect(pending).toBeTruthy()
+    const restored = new ModelAccessManager(env.store, env.cancel, env.fetcher)
+    await restored.refresh()
+    expect((await restored.status()).usable).toBe(true)
+    expect(env.calls.filter(call => call.body.request_id === pending)).toHaveLength(2)
+    expect(env.grants.size).toBe(2)
+  })
+  it('retries an offline expiry automatically with bounded backoff and stops after explicit logout', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); await env.manager.refresh()
+    vi.setSystemTime(new Date('2026-01-01T03:00:00Z')); env.offline(true)
+    await expect(env.manager.tick()).rejects.toMatchObject({ code: 'NETWORK' })
+    expect((await env.manager.status()).usable).toBe(false)
+    env.offline(false)
+    await env.manager.tick()
+    expect(env.grants.size).toBe(1)
+    vi.setSystemTime(new Date('2026-01-01T03:00:02Z'))
+    await env.manager.tick()
+    expect((await env.manager.status()).usable).toBe(true)
+    expect(env.grants.size).toBe(2)
+    await env.manager.logout()
+    vi.setSystemTime(new Date('2026-01-02T03:00:02Z'))
+    await env.manager.tick()
+    expect(env.grants.size).toBe(2)
+  })
+  it('automatically recovers a lost issuance response even after that unacknowledged grant expires', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); env.loseClaim()
+    await expect(env.manager.refresh()).rejects.toMatchObject({ code: 'NETWORK' })
+    const firstRequestId = (await env.store.read()).claimRequestId
+    vi.setSystemTime(new Date('2026-01-01T03:00:01Z'))
+    const restored = new ModelAccessManager(env.store, env.cancel, env.fetcher)
+    await expect(restored.refresh()).rejects.toMatchObject({ code: 'CLAIM_ENDED' })
+    expect((await env.store.read()).claimRequestId).toBeTruthy()
+    expect((await env.store.read()).claimRequestId).not.toBe(firstRequestId)
+    vi.setSystemTime(new Date('2026-01-01T03:00:03Z'))
+    await restored.tick()
+    expect((await restored.status()).usable).toBe(true)
+    expect(env.calls.at(-1)?.body.request_id).not.toBe(firstRequestId)
+    expect(env.grants.size).toBe(2)
+  })
+  it('automatically retries a fully compensated issuance without getting stuck on failed metadata', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); env.loseClaim()
+    await expect(env.manager.refresh()).rejects.toMatchObject({ code: 'NETWORK' })
+    env.compensate()
+    vi.setSystemTime(new Date('2026-01-01T00:00:02Z'))
+    await expect(env.manager.tick()).rejects.toMatchObject({ code: 'CLAIM_ENDED' })
+    vi.setSystemTime(new Date('2026-01-01T00:00:05Z'))
+    await env.manager.tick()
+    expect((await env.manager.status()).usable).toBe(true)
+    expect(env.grants.size).toBe(2)
+  })
+  it('does not use automatic reacquisition to bypass revocation or a denied budget request', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); await env.manager.refresh()
+    env.revoke()
+    await expect(env.manager.refresh()).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+    expect(env.grants.size).toBe(1)
+    expect((await env.manager.status()).usable).toBe(false)
+  })
+  it('keeps denial visible and does not fabricate a grant when the server refuses a new key', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); await env.manager.refresh()
+    vi.setSystemTime(new Date('2026-01-01T03:00:00Z')); env.rejectClaims(429)
+    await expect(env.manager.beginRequest()).rejects.toMatchObject({ code: 'RATE_LIMIT' })
+    expect(env.grants.size).toBe(1)
+    expect((await env.manager.status()).usable).toBe(false)
+    expect((await env.manager.status()).error).toBe('RATE_LIMIT')
+  })
+  it('shares an outage recovery attempt across queued conversations without expiring a verified original grant', async () => {
+    const env = await setup()
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    await signIn(env); await env.manager.refresh()
+    const initialAttempts = env.transportAttempts
+    env.offline(true)
+    const results = await Promise.all(Array.from({ length: 16 }, () => env.manager.beginRequest()))
+    expect(results.every(access => access.lease.id === 'lease-test-0001')).toBe(true)
+    expect(env.transportAttempts - initialAttempts).toBe(1)
+    for (const _ of results) env.manager.finishRequest()
+    expect((await env.manager.status()).usable).toBe(true)
+    vi.setSystemTime(new Date('2026-01-01T03:00:00Z'))
+    const expired = await Promise.allSettled(Array.from({ length: 16 }, () => env.manager.beginRequest()))
+    expect(expired.every(result => result.status === 'rejected')).toBe(true)
+    expect(env.transportAttempts - initialAttempts).toBe(2)
+    expect((await env.manager.status()).usable).toBe(false)
   })
   it('preserves a damaged credential file and only resets it after an explicit logout', async () => {
     const env = await setup()

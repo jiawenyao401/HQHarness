@@ -10,6 +10,8 @@ export interface StoredModelAccess {
   account?: { accessToken: string; refreshToken: string; expiresAt: number; name: string }
   lease?: { snapshot: ModelLease; virtualKey: string }
   claimRequestId?: string
+  claimPredecessorId?: string
+  retiringLeaseIds?: string[]
   pendingRevocation?: string
 }
 export interface CredentialEncryption {
@@ -46,6 +48,14 @@ export class ModelAccessStore {
         result.lease = { snapshot: validateModelLease(lease.snapshot), virtualKey: requiredText(lease.virtualKey, 256) }
       }
       if (row.claimRequestId) result.claimRequestId = requiredText(row.claimRequestId, 80)
+      if (row.claimPredecessorId) {
+        if (!result.claimRequestId) throw new Error('claim predecessor without request')
+        result.claimPredecessorId = requiredText(row.claimPredecessorId, 80)
+      }
+      if (row.retiringLeaseIds) {
+        if (!Array.isArray(row.retiringLeaseIds) || row.retiringLeaseIds.length > 20) throw new Error('retiring leases')
+        result.retiringLeaseIds = [...new Set(row.retiringLeaseIds.map(id => requiredText(id, 80)))]
+      }
       if (row.pendingRevocation) result.pendingRevocation = requiredText(row.pendingRevocation, 80)
       return result
     } catch { throw new ModelAccessError('STORE_INVALID', 'Team credentials could not be decrypted; the original file was preserved') }

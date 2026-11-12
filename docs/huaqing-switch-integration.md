@@ -1,31 +1,30 @@
 # Huaqing Switch desktop integration
 
-HQHarness uses the companion **Huaqing Switch** application as its model source. Start Switch, configure a connection and select its default, then open a new HQHarness session. The Desktop model-provider editor and employee-login card are not loaded. Existing automation, workspaces and optional plugins retain their current composition.
+2026-10-22. Desktop model configuration is owned by the companion **Huaqing Switch** application. Start Switch, add a connection and select its default, then open a new HQHarness session. Client model configuration and employee-login editors are hidden. The existing model selector can only resolve models advertised by Switch.
 
-## Discovery and ownership
+## Ownership
 
-Electron Main passes `HQHARNESS_MODEL_SOURCE=huaqing-switch` and the current user's absolute `.huaqing-switch/connector.json` path to the Harness process. The file must identify `huaqing-switch`, version 1 and exactly `http://127.0.0.1:17621`, with a 64-character hexadecimal local capability. Unix files must be regular, owned by the current user, not symlinks and inaccessible to group/other users. Discovery files and fetched metadata have size and time limits. Vendor credentials remain in Switch and do not enter Harness or the renderer.
+- `src/main/huaqing-switch.ts` supplies the backend source and the absolute discovery path in the current user home. No vendor key or new HTTP proxy is created in Electron.
+- Preload exposes only the fixed model-source label. The existing settings-models package returns before mounting its editor in this mode.
+- `packages/hqharness-model-access` dispatches to `huaqing-switch.js`; official Harness/Pi adapters handle the original protocols. Three native APIs are supported: Chat Completions, Responses, and Anthropic Messages.
+- The dsh-llm patch filters provider discovery and rejects all direct-provider dispatch. Old sessions do not silently change models. All upstream changes are replayed through patch-package at npm postinstall.
 
-The authenticated `/hq/manifest` response provides versioned connection IDs, native API paths and explicit context/output/image budgets. The plugin uses the official Harness/Pi Chat Completions, Responses and Anthropic Messages adapters. Cost metadata is unconfigured and is not billing data. Switch owns port 17621; Harness keeps its existing separate local endpoint.
+## Discovery and session behavior
 
-Default selection synchronizes at startup and every five seconds for new sessions. Offline first launch uses `huaqing-switch/awaiting-connection`; configure Switch and start a new session. Changing the default preserves existing session IDs. Editing or deleting a connection invalidates the old version instead of silently changing a conversation's provider or model. A prepared call retains its manifest and local capability; subsequent calls reread discovery, allowing a Switch restart to rotate credentials without restarting HQHarness. Failed inference is not replayed or routed to a direct provider.
+Read `.huaqing-switch/connector.json` from the current OS user home. It must identify `huaqing-switch`, version 1 and the exact endpoint `http://127.0.0.1:17621`, with a 64-character local access token. Unix files must be owned by this user with no group/other permissions, regular files and not symlinks. Discovery and manifest sizes/timeouts are bounded. No credentials may be redirected to another endpoint.
 
-## Implementation and compatibility
+The authenticated manifest provides versioned connection IDs, native API paths and explicit local token/image budgets. These budgets are configured by the operator, not inferred provider limits. Cost is unconfigured and must not be treated as billing data.
 
-The integration uses `src/main/huaqing-switch.ts`, the existing `hqharness-model-access` plugin and two patches for the pinned Harness `0.2.0-rc.2`. The LLM patch filters provider discovery and rejects direct-provider dispatch in Switch mode. The settings-models patch returns before registering credential/model UI in that mode; it keeps upstream behavior outside Desktop Switch mode. The plugin's renderer declaration is removed so its legacy employee-login editor is absent from the client graph. Existing AgentOS service sources remain for their standalone compatibility tests; Desktop no longer starts that bridge.
+Default model selection synchronizes on startup and every five seconds. With Switch offline at first launch, the selection is `huaqing-switch/awaiting-connection`; configure Switch and start a new session. Existing prepared calls retain their manifest snapshot and token. Later calls reread the file, so a Switch restart rotates local credentials without restarting Harness.
 
-There is no new runtime dependency or lockfile change. `npm ci` must replay both patches, and package metadata must include `huaqing-switch.js`, `switch-connector.js` and `switch-profile.js`. Future Harness upgrades must requalify these seams against actual loader, adapter and settings behavior before retiring the patches.
+Changing a default affects new sessions. Editing/deleting a connection invalidates old pinned IDs rather than silently replacing the provider/model inside a conversation. Failures do not retry against another provider. The runtime retains its own random local port; 17621 belongs only to Switch.
 
 ## Validation
 
-```sh
-npm ci
-npm run typecheck
-npx --no-install vitest run test/huaqing-switch.test.mjs test/huaqing-switch-env.test.ts test/huaqing-switch-runtime.test.ts test/model-settings-render.test.mjs test/desktop-onboarding.test.ts test/model-access-harness.test.ts
-npm test
-npm run build
-```
+The final macOS arm64 package was built, opened with an isolated user-data directory, and checked for the fixed source and absent model configuration section. Its ASAR contains the new connector and both replayable policy seams.
 
-These tests are included by the existing Vitest configuration and Windows acceptance workflow. They cover discovery validation, native Pi profile creation, offline defaults, authenticated Harness startup and bootstrap registration, absence of the employee editor and direct-provider settings, existing onboarding, and the preserved standalone AgentOS adapter. A clean installation and passing tests do not establish installed Windows UI behavior or real upstream model access.
+Six targeted test files passed 35 tests, including offline startup default, empty default, discovery validation, existing onboarding and real focused-client runtime. Node TypeScript checking, build, target verification and electron-builder directory packaging passed. A source-only clean copy passed full npm ci with postinstall patch replay; standard build regenerates required Office/PPT payloads before runtime tests.
 
-For three-protocol streaming, cancellation, credential rotation and connection-version acceptance, run `scripts/verify-harness-connector.mjs` from the Switch repository against a native Switch executable and this checkout. That test uses deterministic loopback provider fixtures, with no paid model request. The Windows acceptance workflow builds an unsigned installer and records its source commit and SHA256; installation and real model use on the target machine remain separate acceptance steps. No formal release is created by that workflow.
+The companion Switch repository contains `scripts/verify-harness-connector.mjs`: actual native Switch and actual Harness/Pi runtime against a deterministic local API fixture, covering three protocols, streaming tool calls, cancellation, authentication, token rotation and connection pinning. This is not a real paid-model request. Windows/Linux native acceptance and formal signing/release remain separate checks.
+
+Evidence and full Switch operations documentation: `/Users/jiawy/Documents/预研/Huaqing Model Connection/validation/` and `docs/huaqing-harness-integration.md` in that repository. Existing unrelated working changes in this HQHarness checkout were preserved.

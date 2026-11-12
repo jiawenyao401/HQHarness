@@ -1,15 +1,15 @@
-# HQHarness AgentOS model access compatibility
+# HQHarness team model access
 
-Desktop uses [Huaqing Switch](huaqing-switch-integration.md) as its model source and no longer starts the AgentOS bridge or employee-login editor. The implementation below is retained for explicitly selected standalone deployments and its existing compatibility tests.
-
-In that mode, `hqharness-model-access` supplies a managed provider to the existing Harness LLM service. It uses the official Pi AI adapter; sessions, tools and model message conversion remain owned by Harness.
+The built-in `hqharness-model-access` plugin adds a card to **Settings → Models** and a managed provider to the existing Harness LLM service. It uses the official Pi AI adapter; sessions, tools and model message conversion remain owned by Harness.
 
 ## Policy
 
 - An authenticated AgentOS employee claims one three-hour lease for the administrator-selected `DeepSeek-V41-Flash` logical model. A system administrator account cannot claim employee access.
 - During the original final ten minutes, an active model request or a model request within the last ten minutes triggers one automatic renewal. Opening the application alone does not trigger renewal. The maximum deadline is the original issue time plus six hours.
 - AgentOS validates ownership, the renewal window and the single-renewal limit atomically. Retrying a lost response cannot move the deadline. The existing user/team budgets and rate limits remain authoritative; renewal updates only expiry.
-- Expiry, revocation and account disablement stop access. Requests are bounded to five minutes and the lease deadline. A failed request is never automatically replayed through another model or after a tool operation.
+- Each key stops working at its deadline. The main process automatically claims another three-hour lease after expiry, including when idle. During active use it prepares the successor in the final six minutes so old in-flight requests can finish on their original key. User/team budgets and accumulated spend are preserved across keys. Requests are bounded to five minutes and the applicable key deadline; dispatched inference and tool operations are never automatically replayed.
+- Handoff uses the same durable claim ID across retries and restarts. Only the same installation and owning session can name its predecessor, and the server permits at most two overlapping keys within the handoff window. An ended, fully compensated claim returns HTTP 410 so the client can safely start a new claim ID; ambiguous reservations stay HTTP 409.
+- Revocation and account disablement stop access. Automatic acquisition respects the same server admission, active-key and rate limits. Failed acquisition retries with exponential backoff capped at thirty seconds; resume and explicit refresh trigger reconciliation. Finished old requests are followed by readback-confirmed retirement of their previous key.
 - Claims use durable idempotency IDs. AgentOS limits concurrent active leases and claim frequency. Signing out stops local use immediately; a failed remote revocation remains visible and is retried on the next login, with server expiry as the final bound.
 
 ## Credentials and transport
@@ -35,3 +35,7 @@ The AgentOS changes add schema version 31 and `/desktop/model-access` control/in
 Image input and tool-call capabilities default to unverified. Enable them only after testing the actual model deployment. Browser automation requires reliable tool calls; screenshot-based Computer Use also requires image understanding. The model's display name does not establish either capability.
 
 The implementation and UI being present does not establish that the target BFF is deployed, a usable model exists, or Windows installation has passed native acceptance. Record those results separately. The current environment inspection and verification results are kept in the task's local validation report.
+
+## Approved next authentication mode
+
+The user has approved automatic startup without employee login using a dedicated HQHarness client pool, first registration from `192.168.2.0/24`, a pool limit of CNY 10/24h and CNY 1/24h per registered device. These device credentials and the dedicated pool require their own server protocol and native acceptance. The employee API above is the existing compatibility path, and the 0.1.4 installers do not implement the approved device mode. See the local implementation proposal for the exact approved policy and acceptance requirements.

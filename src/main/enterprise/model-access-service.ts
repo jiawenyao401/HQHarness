@@ -144,7 +144,7 @@ export class DesktopModelAccessService {
     if (!address || typeof address === 'string') { server.close(); throw new Error('Team model loopback bridge could not start') }
     this.server = server
     this.port = address.port
-    this.timer = setInterval(() => { void this.manager.tick().catch(() => { /* Renewal failures remain visible; original expiry still applies. */ }) }, 30_000)
+    this.timer = setInterval(() => { void this.manager.tick().catch(() => { /* The manager owns bounded retries; acquisition failures remain visible. */ }) }, 5000)
     this.timer.unref()
     powerMonitor.on('resume', this.resume)
   }

@@ -1,6 +1,8 @@
 export const TEAM_MODEL_PROVIDER = 'hqharness-team'
 export const LEASE_MS = 3 * 60 * 60 * 1000
 export const RENEW_WINDOW_MS = 10 * 60 * 1000
+// Five-minute inference bound, control-request timeout and scheduling margin.
+export const HANDOFF_WINDOW_MS = 6 * 60 * 1000
 
 export interface TeamModel {
   id: string
@@ -86,4 +88,13 @@ export function shouldAutoRenew(lease: ModelLease, serverNow: number, lastUsed: 
   // A durable pending renewal is reconciliation of an already accepted attempt.
   if (lease.status === 'renewing') return !lease.auto_renewed && remaining > -LEASE_MS
   return !lease.auto_renewed && ['active', 'renewing'].includes(lease.status) && remaining > 0 && remaining <= RENEW_WINDOW_MS && (activeRequests > 0 || lastUsed > 0 && serverNow - lastUsed <= RENEW_WINDOW_MS)
+}
+export function shouldAcquireLease(lease: ModelLease | undefined, serverNow: number, lastUsed: number, activeRequests: number): boolean {
+  if (!lease) return true
+  if (lease.status === 'expired') return true
+  if (!['active', 'renewing'].includes(lease.status)) return false
+  const remaining = Date.parse(lease.expires_at) - serverNow
+  // Reconcile the original once-only renewal before preparing a successor.
+  // An ambiguous renewal might already have extended the server-side key.
+  return remaining <= 0 || lease.status === 'active' && lease.auto_renewed && remaining <= HANDOFF_WINDOW_MS && (activeRequests > 0 || lastUsed > 0 && serverNow - lastUsed <= RENEW_WINDOW_MS)
 }

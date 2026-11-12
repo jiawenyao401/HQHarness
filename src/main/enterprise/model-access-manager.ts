@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks'
 import { randomUUID } from 'node:crypto'
-import { ModelAccessError, objectValue, requiredText, shouldAutoRenew, validateModelAccessConfiguration, validateModelLease, type ModelAccessStatus, type ModelLease } from '../../shared/model-access'
+import { ModelAccessError, objectValue, requiredText, shouldAcquireLease, shouldAutoRenew, validateModelAccessConfiguration, validateModelLease, type ModelAccessStatus, type ModelLease } from '../../shared/model-access'
 import { AgentOsClient } from './model-access-client'
 import { ModelAccessStore, type StoredModelAccess } from './model-access-store'
 
@@ -18,6 +18,9 @@ export class ModelAccessManager {
   private active = 0
   private lastUsed = 0
   private lastRenewalAttempt = 0
+  private recoveryFailures = 0
+  private nextRecoveryAt = 0
+  private recoveryError?: ModelAccessError
   constructor(private readonly store: ModelAccessStore, private readonly cancelRequests: () => void, private readonly fetcher: typeof fetch = fetch) {}
   initialize(): Promise<void> {
     return this.initialized ??= this.store.read().then(data => { this.data = data }).catch(error => {
@@ -59,7 +62,7 @@ export class ModelAccessManager {
   }
   async status(): Promise<ModelAccessStatus> {
     try { await this.initialize() } catch { /* Status must expose a recoverable storage failure. */ }
-    const lease = this.remoteLease ?? this.data.lease?.snapshot
+    const lease = this.data.lease?.snapshot ?? this.remoteLease
     const remainingMs = lease ? Math.max(0, Date.parse(lease.expires_at) - this.now()) : 0
     return {
       configured: !!this.data.configuration, server: this.data.configuration?.baseUrl ?? '', insecureTest: this.data.configuration?.allowInsecureTest ?? false,
@@ -115,49 +118,116 @@ export class ModelAccessManager {
       if (options.password_login_enabled !== true) throw new ModelAccessError('PASSWORD_LOGIN_DISABLED', 'Use the organization sign-in method enabled by this service')
       await this.saveAccount(await this.client().request('/auth/login', 'POST', undefined, { username, password }))
       this.disabled = false
-      if (this.data.pendingRevocation) {
-        await this.authorized(`/desktop/model-access/leases/${this.data.pendingRevocation}`, 'DELETE', { installation_id: this.data.installationId })
-        this.data.pendingRevocation = undefined
-        await this.store.write(this.data)
-      }
+      await this.retireOldLeases(true)
       await this.syncCurrent()
+      this.recoveryFailures = 0
+      this.nextRecoveryAt = 0
+      this.recoveryError = undefined
     })
     return this.status()
   }
   private async syncCurrent(): Promise<void> {
+    let response: Record<string, unknown>
+    try { response = await this.authorized(`/desktop/model-access/leases/current?installation_id=${this.data.installationId}`, 'GET') }
+    catch (error) {
+      // A transient outage does not revoke an already verified, finite grant.
+      // Restored/resumed processes start unverified and cannot use this path.
+      if (!(error instanceof ModelAccessError) || error.code !== 'NETWORK' && error.status !== 503) this.verified = false
+      throw error
+    }
+    const wasVerified = this.verified
     this.verified = false
-    const response = await this.authorized(`/desktop/model-access/leases/current?installation_id=${this.data.installationId}`, 'GET')
     if (response.lease) {
       const lease = this.acceptLease(response.lease)
-      this.verified = this.data.lease?.snapshot.id === lease.id && ['active', 'renewing'].includes(lease.status) && Date.parse(lease.expires_at) > this.now()
-      if (['revoked', 'revoking', 'failed', 'expired'].includes(lease.status)) this.cancelRequests()
+      if (this.data.lease?.snapshot.id === lease.id) {
+        this.verified = ['active', 'renewing'].includes(lease.status) && Date.parse(lease.expires_at) > this.now()
+        if (['revoked', 'revoking', 'failed'].includes(lease.status)) this.cancelRequests()
+      } else if (this.data.claimRequestId && ['active', 'renewing'].includes(lease.status)) this.verified = wasVerified
     } else { this.remoteLease = undefined; this.data.lease = undefined; this.verified = false }
     await this.store.write(this.data)
   }
   async refresh(): Promise<ModelAccessStatus> {
-    await this.run(async () => { await this.syncCurrent(); await this.autoRenew() })
+    await this.run(() => this.maintainAccess(true))
     return this.status()
   }
   async claim(): Promise<ModelAccessStatus> {
-    await this.run(async () => {
-      await this.syncCurrent()
-      if (this.remoteLease && !this.data.claimRequestId && !['revoked', 'failed', 'expired'].includes(this.remoteLease.status)) {
-        await this.authorized(`/desktop/model-access/leases/${this.remoteLease.id}`, 'DELETE', { installation_id: this.data.installationId })
-      }
-      this.data.claimRequestId ??= randomUUID()
-      await this.store.write(this.data)
-      const result = await this.authorized('/desktop/model-access/leases', 'POST', { installation_id: this.data.installationId, request_id: this.data.claimRequestId })
-      const snapshot = this.acceptLease(result)
-      const virtualKey = requiredText(result.virtual_key, 256)
-      if (!virtualKey.startsWith('sk-') || snapshot.status !== 'active') throw new ModelAccessError('INVALID_RESPONSE', 'Invalid issued team credentials')
-      this.data.lease = { snapshot, virtualKey }
-      this.data.claimRequestId = undefined
-      this.data.pendingRevocation = undefined
-      this.disabled = false
-      await this.store.write(this.data)
-      this.verified = true
-    })
+    await this.run(() => this.maintainAccess(true))
     return this.status()
+  }
+  private async issueLease(): Promise<void> {
+    if (!this.data.claimRequestId) {
+      const previous = this.data.lease?.snapshot
+      this.data.claimPredecessorId = previous && Date.parse(previous.expires_at) > this.now() ? previous.id : undefined
+    }
+    this.data.claimRequestId ??= randomUUID()
+    await this.store.write(this.data)
+    let result: Record<string, unknown>
+    try {
+      result = await this.authorized('/desktop/model-access/leases', 'POST', {
+        installation_id: this.data.installationId, request_id: this.data.claimRequestId,
+        ...(this.data.claimPredecessorId ? { predecessor_id: this.data.claimPredecessorId } : {})
+      })
+    } catch (error) {
+      if (!(error instanceof ModelAccessError) || error.code !== 'CLAIM_ENDED') throw error
+      // The server explicitly confirmed that a lost-ack claim has expired (or
+      // was fully compensated). Never rotate an ambiguous live reservation.
+      this.data.claimRequestId = randomUUID()
+      this.data.claimPredecessorId = undefined
+      await this.store.write(this.data)
+      throw error
+    }
+    const snapshot = this.acceptLease(result)
+    const virtualKey = requiredText(result.virtual_key, 256)
+    if (!virtualKey.startsWith('sk-') || snapshot.status !== 'active') throw new ModelAccessError('INVALID_RESPONSE', 'Invalid issued team credentials')
+    const previousId = this.data.lease?.snapshot.id
+    if (previousId && previousId !== snapshot.id) this.data.retiringLeaseIds = [...new Set([...(this.data.retiringLeaseIds ?? []), previousId])]
+    this.data.lease = { snapshot, virtualKey }
+    this.data.claimRequestId = undefined
+    this.data.claimPredecessorId = undefined
+    this.disabled = false
+    await this.store.write(this.data)
+    this.verified = true
+  }
+  private async retireOldLeases(includePending = false): Promise<void> {
+    if (this.active > 0) return
+    const ids = new Set(this.data.retiringLeaseIds ?? [])
+    if (includePending && this.data.pendingRevocation) ids.add(this.data.pendingRevocation)
+    for (const id of ids) {
+      await this.authorized(`/desktop/model-access/leases/${id}`, 'DELETE', { installation_id: this.data.installationId })
+      this.data.retiringLeaseIds = this.data.retiringLeaseIds?.filter(value => value !== id)
+      if (this.data.pendingRevocation === id) this.data.pendingRevocation = undefined
+      await this.store.write(this.data)
+    }
+  }
+  private async maintainAccess(synchronize: boolean): Promise<void> {
+    if (!this.data.account || this.disabled) return
+    try {
+      if (this.data.pendingRevocation) await this.retireOldLeases(true)
+      if (synchronize || !this.verified) await this.syncCurrent()
+      try { await this.autoRenew() } catch (error) {
+        // Preserve the original deadline if a renewal cannot be confirmed.
+        this.error = error instanceof ModelAccessError ? error.code : 'SERVICE_ERROR'
+        if (!(error instanceof ModelAccessError) || !['NETWORK', 'SERVICE_ERROR', 'LEASE_CONFLICT'].includes(error.code)) {
+          this.verified = false
+          throw error
+        }
+      }
+      const lease = this.data.lease?.snapshot ?? this.remoteLease
+      if (lease && (['revoked', 'revoking'].includes(lease.status) || lease.status === 'failed' && !this.data.claimRequestId)) throw new ModelAccessError('ACCESS_DENIED', 'Model access was revoked or disabled')
+      if (this.data.claimRequestId || shouldAcquireLease(lease, this.now(), this.lastUsed, this.active)) await this.issueLease()
+      await this.retireOldLeases(true)
+      this.recoveryFailures = 0
+      this.nextRecoveryAt = 0
+      this.recoveryError = undefined
+    } catch (error) {
+      this.recoveryFailures++
+      // One serialized retry loop covers startup, expiry and wake events. The
+      // server remains authoritative for admission, budgets and idempotency.
+      const backoff = Math.min(30_000, 1000 * 2 ** Math.min(this.recoveryFailures - 1, 5))
+      this.nextRecoveryAt = this.now() + backoff * (0.8 + Math.random() * 0.2)
+      this.recoveryError = error instanceof ModelAccessError ? error : new ModelAccessError('SERVICE_ERROR', 'Model access recovery is pending')
+      throw error
+    }
   }
   private async autoRenew(): Promise<void> {
     let lease = this.data.lease?.snapshot
@@ -179,17 +249,24 @@ export class ModelAccessManager {
     this.verified = true
   }
   async tick(): Promise<void> {
-    if (!this.data.lease || this.disabled) return
-    await this.run(() => this.autoRenew())
+    await this.initialize()
+    if (!this.data.account || this.disabled || this.now() < this.nextRecoveryAt || this.busy) return
+    await this.run(() => this.maintainAccess(false))
   }
   async beginRequest(): Promise<ModelRequestAccess> {
     return this.run(async () => {
-      if (this.disabled || !this.data.lease) throw new ModelAccessError('LEASE_REQUIRED', 'Claim team model access first')
-      await this.syncCurrent()
+      if (this.disabled || !this.data.account) throw new ModelAccessError('LEASE_REQUIRED', 'Model access is unavailable')
       this.lastUsed = this.now()
-      try { await this.autoRenew() } catch (error) {
-        // A failed extension does not consume the original three-hour grant.
-        this.error = error instanceof ModelAccessError ? error.code : 'SERVICE_ERROR'
+      if (this.now() < this.nextRecoveryAt && this.recoveryError) {
+        const current = this.data.lease?.snapshot
+        // Queued conversations share the same recovery attempt. Do not let an
+        // outage turn sixteen queued requests into sixteen 30-second probes.
+        if (!['NETWORK', 'SERVICE_ERROR', 'LEASE_CONFLICT'].includes(this.recoveryError.code) || !this.verified || !current || Date.parse(current.expires_at) <= this.now()) throw this.recoveryError
+      } else {
+        try { await this.maintainAccess(true) } catch (error) {
+          this.error = error instanceof ModelAccessError ? error.code : 'SERVICE_ERROR'
+          if (!(error instanceof ModelAccessError) || !['NETWORK', 'SERVICE_ERROR', 'LEASE_CONFLICT'].includes(error.code)) throw error
+        }
       }
       const lease = this.data.lease
       if (!this.verified || !lease || !['active', 'renewing'].includes(lease.snapshot.status) || Date.parse(lease.snapshot.expires_at) <= this.now()) throw new ModelAccessError('LEASE_EXPIRED', 'Team model access expired or was revoked')
@@ -213,15 +290,19 @@ export class ModelAccessManager {
       this.disabled = true
       this.verified = false
       this.cancelRequests()
-      const id = this.data.lease?.snapshot.id ?? this.remoteLease?.id ?? this.data.pendingRevocation
+      const ids = new Set([this.data.lease?.snapshot.id, this.remoteLease?.id, this.data.pendingRevocation, ...(this.data.retiringLeaseIds ?? [])].filter((id): id is string => !!id))
+      const pending: string[] = []
       let failed = false
       try {
         if (this.data.account) {
-          if (id) await this.authorized(`/desktop/model-access/leases/${id}`, 'DELETE', { installation_id: this.data.installationId })
+          for (const id of ids) {
+            try { await this.authorized(`/desktop/model-access/leases/${id}`, 'DELETE', { installation_id: this.data.installationId }) }
+            catch { pending.push(id); failed = true }
+          }
           await this.authorized('/auth/logout', 'POST')
         }
       } catch { failed = true }
-      this.data = { version: 1, installationId: this.data.installationId, ...(this.data.configuration ? { configuration: this.data.configuration } : {}), ...(failed && id ? { pendingRevocation: id } : {}) }
+      this.data = { version: 1, installationId: this.data.installationId, ...(this.data.configuration ? { configuration: this.data.configuration } : {}), ...(pending[0] ? { pendingRevocation: pending[0], retiringLeaseIds: pending } : {}) }
       this.remoteLease = undefined
       await this.store.write(this.data)
       if (failed) throw new ModelAccessError('REVOCATION_PENDING', 'Local access stopped; remote revocation awaits the next sign-in or expiry')

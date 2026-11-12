@@ -87,7 +87,7 @@ macOS 本机验收不能替代 Windows 原生验收；正式 Windows 分发必�
 - `node scripts/automation-performance-smoke.mjs`：真实 Electron 与任务自有网页，验证默认无图、中文替换、三步本地计划、显式图片/坐标、歧义停止、15 秒步骤超时和取消后不执行后续步骤；以独立 DOM/事件状态核对结果。
 - `node scripts/automation-window-smoke.mjs`：仅 Windows，启动任务自有 WinForms 窗口，用真实 UIA 发现/观察、设置非空初始值、追加中文、点击与等待，读取独立结果文件核对 TextBox 值及实际 click handler 恰好执行一次，另验显式窗口图片和旧 snapshot 拒绝。需要可交互 Windows 桌面，环境不满足时失败，不跳过验收。
 
-两脚本输出各阶段时间、操作数及图片数，日志作为 `hqharness-windows-automation-acceptance-logs` artifact 保存；Actions 配额不足时可使用[手动私有草稿交付](hqharness-release.md#私有仓库的-windows-验收包交付)，同一草稿附带安装器、清单和两份日志。`windows-acceptance.json` 仅在前序门禁成功后记录对应 fixture 验收通过，并明确 `endToEndModelSpeedup` 尚未测量；它们没有调用云模型，也不替代最终安装版本的实际应用、课堂操作、模型能力及性能对照验收。配置了 workflow 不表示当前提交已通过 Windows 运行；以该提交的成功 run、日志、安装包 SHA256 与 manifest 为证据。
+两脚本输出各阶段时间、操作数及图片数，日志作为 `hqharness-windows-automation-acceptance-logs` artifact 保存。`windows-acceptance.json` 仅在前序门禁成功后记录对应 fixture 验收通过，并明确 `endToEndModelSpeedup` 尚未测量；它们没有调用云模型，也不替代最终安装版本的实际应用、课堂操作、模型能力及性能对照验收。配置了 workflow 不表示当前提交已通过 Windows 运行；以该提交的成功 run、日志、安装包 SHA256 与 manifest 为证据。
 
 ## 底层接口依据
 

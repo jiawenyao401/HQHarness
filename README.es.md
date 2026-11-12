@@ -15,7 +15,7 @@ Este repositorio ofrece código fuente y procesos de compilación nativa. HQHarn
 ## Funciones
 
 - Electron inicia el runtime y la interfaz web existentes de Harness
-- Selector de espacios de trabajo, conexiones de modelos con Huaqing Switch, perfiles y sesiones
+- Selector de espacios de trabajo, proveedores de modelos, perfiles y sesiones
 - Importación/exportación `.dshpreset` y herramientas PPTX, DOCX y XLSX
 - Safe Mode, recuperación de plugins y diagnóstico de inicio; si la interfaz normal no abre, inicia con `--safe-mode`
 - Teléfono vinculado por LAN o Cloudflare Quick Tunnel opcional, con Pinggy como alternativa
