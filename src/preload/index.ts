@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { DESKTOP_VERSION_ARGUMENT, type AvailableRelease, type UpdateStatus } from '../shared/contracts'
+import { BAILIAN_TEST_MODEL_ARGUMENT, DESKTOP_VERSION_ARGUMENT, type AvailableRelease, type UpdateStatus } from '../shared/contracts'
 import { PRODUCT_NAME } from '../shared/brand'
 import { phoneIcon, updateIcon } from '../../.build/brand/ui-icons'
 import { setupDesktopStoragePersistence } from './desktop-storage'
@@ -180,7 +180,7 @@ contextBridge.exposeInMainWorld('hqWps', {
   stop: () => ipcRenderer.invoke('hq:wps:stop')
 })
 
-contextBridge.exposeInMainWorld('hqModelSource', 'huaqing-switch')
+contextBridge.exposeInMainWorld('hqModelSource', process.argv.includes(BAILIAN_TEST_MODEL_ARGUMENT) ? 'bailian' : 'huaqing-switch')
 
 contextBridge.exposeInMainWorld('hqTeamModelAccess', {
   status: () => ipcRenderer.invoke('hq:model-access:status'),

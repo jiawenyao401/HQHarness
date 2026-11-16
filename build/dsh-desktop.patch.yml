@@ -80,6 +80,11 @@
     - id: hqharness-model-access
       name: hqharness-model-access
 
+    - id: hqharness-oa-cli
+      name: hqharness-oa-cli
+      config:
+        resources: !!js process.env.HQHARNESS_HUAQING_CLI_RESOURCES
+
     # DSH PPT owns one direct PPTD workflow and one standard Composer client.
     # The package contains no Tencent editor runtime or SlideP route.
     - id: dsh-ppt-composer

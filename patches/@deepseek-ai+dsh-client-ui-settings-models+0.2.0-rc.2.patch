@@ -892,8 +892,8 @@ diff --git a/node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.
  		* @param ctx - client root context.
  		*/
  		function apply(ctx) {
-+			// Desktop delegates model configuration to Huaqing Switch.
-+			if (globalThis.hqModelSource === "huaqing-switch") return;
++			// Desktop deployment modes control model configuration.
++			if (globalThis.hqModelSource === "huaqing-switch" || globalThis.hqModelSource === "bailian") return;
  			const payload = globalThis[ONBOARDING_CONFIG_GLOBAL];
  			const credentialOnboarding = Config(payload === void 0 ? {} : payload).credentialOnboarding && !("dshDesktop" in globalThis);
  			ctx.effect(() => ctx.locale.register(NS, {

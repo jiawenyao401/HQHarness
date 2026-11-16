@@ -1,6 +1,7 @@
 import type { PluginStartupFailure } from './plugin-startup-failure'
 
 export const DESKTOP_VERSION_ARGUMENT = '--hqharness-desktop-version='
+export const BAILIAN_TEST_MODEL_ARGUMENT = '--hqharness-bailian-test-model'
 
 export type RuntimePhase =
   | 'idle'

@@ -1,0 +1,14 @@
+{
+  "name": "hqharness-oa-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": { ".": "./index.js", "./package.json": "./package.json" },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill-filesystem": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "hqharness-automation": "0.1.7"
+  }
+}

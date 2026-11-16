@@ -7,6 +7,7 @@ export const name = 'hqharness-model-access'
 export const inject = ['llm', 'connection', 'agentDefaultModel']
 
 export function apply(ctx) {
+  if (process.env.HQHARNESS_MODEL_SOURCE === 'bailian') return import('./bailian.js').then(module => module.applyBailian(ctx))
   if (process.env.HQHARNESS_MODEL_SOURCE === 'huaqing-switch') return import('./huaqing-switch.js').then(module => module.applySwitch(ctx))
   const endpoint = process.env.HQHARNESS_MODEL_BRIDGE_URL
   const token = process.env.HQHARNESS_MODEL_BRIDGE_TOKEN

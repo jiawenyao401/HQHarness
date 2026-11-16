@@ -105,6 +105,7 @@ jobs:
             source = '${{ github.sha }}'
             automationVersion = $automation.version
             actualAgentToolExecution = 'passed'
+            huaqingCli = 'passed (installed CLI and skills, OA expense dry-run, SQLite persistence and keyring)'
             nativeSessionRecovery = 'passed (SDK lifecycle; installed UI pending)'
             nativeConsentTimeoutAndRetry = 'passed (actual Electron dialogs; installed UI pending)'
             losslessScreenshotOutput = 'passed'

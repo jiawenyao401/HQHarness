@@ -48,6 +48,8 @@ window.__ModuleLoader__.load({
       declarationBody: 'Huaqing Desktop is a local-first AI workspace built on the open-source Harness runtime. Connect through Huaqing Switch to start conversations, work with your files, and use compatible plugins.\n\nYour workspace files and app settings stay on this device. When you use a model or a network-enabled plugin, it may send data to its service provider according to your configuration.',
       desktopIntroTitle: 'Before you begin',
       desktopIntroBody: 'Start Huaqing Switch and select a default connection there. Huaqing Desktop connects automatically; model configuration is managed in Huaqing Switch.',
+      bailianDeclarationBody: 'Huaqing Desktop is a local-first AI workspace built on the open-source Harness runtime. This internal build uses Alibaba Cloud Bailian by default.\n\nWorkspace files and app settings are stored on this device. Conversations and model inputs are sent to Alibaba Cloud Bailian when you use the model.',
+      bailianIntroBody: 'Start a new conversation to use qwen3.8-27b-nvfp4. It is already configured for this internal test.',
       desktopIntroFeedback: 'You can review the bundled Harness version and check update availability from About Huaqing Desktop.',
       configureModel: 'Start using Huaqing Desktop',
       later: 'Maybe later',
@@ -60,6 +62,8 @@ window.__ModuleLoader__.load({
       declarationBody: 'Huaqing Desktop 是基于开源 Harness 运行时构建的本地优先 AI 工作空间。连接 Huaqing Switch 后，即可开始对话、处理本地文件并使用兼容插件。\n\n工作区文件和应用设置保存在本机。使用模型或联网插件时，它们可能根据你的配置将数据发送给对应服务提供方。',
       desktopIntroTitle: '开始之前',
       desktopIntroBody: '启动 Huaqing Switch 并在其中设置默认连接，Huaqing Desktop 会自动连接；模型配置统一在 Huaqing Switch 中管理。',
+      bailianDeclarationBody: 'Huaqing Desktop 是基于开源 Harness 运行时构建的本地优先 AI 工作空间。本内测版默认连接阿里云百炼。\n\n工作区文件和应用设置保存在本机。使用模型时，对话和模型输入会发送至阿里云百炼。',
+      bailianIntroBody: '新建会话即可使用已配置的 qwen3.8-27b-nvfp4。',
       desktopIntroFeedback: '可在「关于 Huaqing Desktop」中查看内置 Harness 版本和更新服务状态。',
       configureModel: '开始使用 Huaqing Desktop',
       later: '稍后再说',
@@ -80,7 +84,8 @@ window.__ModuleLoader__.load({
     // Huaqing Desktop owns this introduction. Support links stay absent until a
     // real Huaqing Desktop destination is configured by the distribution.
     function NoticeBody({ t }) {
-      const paragraphs = t('declarationBody').split('\n\n')
+      const bailianTest = window.hqModelSource === 'bailian'
+      const paragraphs = t(bailianTest ? 'bailianDeclarationBody' : 'declarationBody').split('\n\n')
       return React.createElement(
         'div',
         { className: 'dshDeskOnbBody' },
@@ -88,7 +93,7 @@ window.__ModuleLoader__.load({
           React.createElement('p', { key: idx, className: 'dshDeskOnbParagraph' }, paragraph)
         ),
         React.createElement('h3', { className: 'dshDeskOnbSubheading' }, t('desktopIntroTitle')),
-        React.createElement('p', { className: 'dshDeskOnbParagraph' }, t('desktopIntroBody')),
+        React.createElement('p', { className: 'dshDeskOnbParagraph' }, t(bailianTest ? 'bailianIntroBody' : 'desktopIntroBody')),
         React.createElement('p', { className: 'dshDeskOnbHint' }, t('desktopIntroFeedback'))
       )
     }
@@ -211,7 +216,7 @@ window.__ModuleLoader__.load({
                 variant: 'primary',
                 disabled: saving,
                 onClick: () => finish(() => {
-                  if (window.hqModelSource !== 'huaqing-switch' && typeof openSection === 'function') openSection(MODELS_SECTION_ID)
+                  if (window.hqModelSource !== 'huaqing-switch' && window.hqModelSource !== 'bailian' && typeof openSection === 'function') openSection(MODELS_SECTION_ID)
                 })
               },
               t('configureModel')

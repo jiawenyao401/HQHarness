@@ -33,12 +33,16 @@ foreach ($path in @($root, $workspace)) {
 
 foreach ($phase in @('first install', 'same-path upgrade')) {
   if ((Invoke-TestInstaller '/S /currentuser') -ne 0) { throw "Failed $phase" }
-  if (-not (Test-Path -LiteralPath (Join-Path $appDirectory 'HQHarness.exe') -PathType Leaf)) {
+  $executable = Join-Path $appDirectory 'HQHarness.exe'
+  $resources = Join-Path $appDirectory 'resources'
+  if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
     throw "Missing executable in Documents/HuaqingDesktop/app after $phase"
   }
-  if (-not (Test-Path -LiteralPath (Join-Path $appDirectory 'resources/app.asar') -PathType Leaf)) {
+  if (-not (Test-Path -LiteralPath (Join-Path $resources 'app.asar') -PathType Leaf)) {
     throw "Missing bundled runtime after $phase"
   }
+  & node (Join-Path $PSScriptRoot 'verify-packaged-huaqing-cli.cjs') $resources $executable
+  if ($LASTEXITCODE -ne 0) { throw "Huaqing CLI validation failed after $phase" }
   Assert-Workspace
 }
 

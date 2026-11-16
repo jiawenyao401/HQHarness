@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$Installer,
-  [Parameter(Mandatory = $true)][string]$PublisherName
+  [Parameter(Mandatory = $true)][string]$PublisherName,
+  [switch]$HistoricalArtifact
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,6 +83,21 @@ function Assert-OfficeRuntime([string]$executable) {
   if ($LASTEXITCODE -ne 0) { throw 'Installed Office runtime validation failed.' }
 }
 
+function Assert-HuaqingCliRuntime([string]$executable) {
+  $resources = Join-Path (Split-Path $executable) 'resources'
+  $verifier = Join-Path $PSScriptRoot 'verify-packaged-huaqing-cli.cjs'
+  if ($HistoricalArtifact) {
+    if (-not (Test-Path -LiteralPath (Join-Path $resources 'huaqing-cli'))) {
+      Write-Host 'Selected historical installer predates the Huaqing CLI bundle.'
+      return
+    }
+    & node $verifier $resources $executable --historical
+  } else {
+    & node $verifier $resources $executable
+  }
+  if ($LASTEXITCODE -ne 0) { throw 'Installed Huaqing CLI validation failed.' }
+}
+
 function Assert-Starts([string]$executable) {
   $logPaths = @(Get-HarnessLogPaths)
   $launchTime = (Get-Date).ToUniversalTime().AddSeconds(-2)
@@ -138,6 +154,7 @@ $secondDirectory = Join-Path $root 'install-two'
 $firstExecutable = Install-At $firstDirectory
 Assert-InstalledPeSignatures $firstDirectory
 Assert-OfficeRuntime $firstExecutable
+Assert-HuaqingCliRuntime $firstExecutable
 Assert-Starts $firstExecutable
 
 $profileMarker = Join-Path $script:activeAppDataRoot 'hqharness\harness\signed-smoke-marker'
@@ -174,5 +191,6 @@ if (-not (Test-Path $firstExecutable)) { throw 'Custom-directory install removed
 Assert-Signature $firstExecutable $true
 Assert-InstalledPeSignatures $secondDirectory
 Assert-OfficeRuntime $secondExecutable
+Assert-HuaqingCliRuntime $secondExecutable
 Assert-Starts $secondExecutable
 Write-Host 'Final signed installer passed first install, same-path upgrade, custom directory, signature and startup checks.'

@@ -93,6 +93,9 @@ if (!dshEntryPath) {
       ? join(resources, 'office-runtime')
       : join(resources, '..', '.build', 'office-runtime')
     process.env.DSH_DESKTOP_OFFICE_CLI = join(resources, 'office-cli.mjs')
+    process.env.HQHARNESS_HUAQING_CLI_RESOURCES = archive
+      ? join(resources, 'huaqing-cli')
+      : join(resources, '..', '.build', 'huaqing-cli')
     registerHostModuleFallback(dshEntryPath)
     // Packages load through app.asar; the Office engine must resolve to its
     // unpacked directory so the OS can spawn it.

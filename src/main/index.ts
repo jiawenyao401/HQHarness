@@ -2,6 +2,7 @@ import { PRODUCT_NAME } from '../shared/brand'
 import { DesktopAutomationService } from './automation/service'
 import { DesktopWpsService } from './wps/service'
 import { huaqingSwitchEnvironment } from './huaqing-switch'
+import { DesktopBailianTestModel, readBailianTestKey } from './enterprise/bailian-test-model'
 import { applicationIdentity, applicationUserData } from './application-identity'
 import { resolveDesktopResourcePath } from './desktop-resources'
 import { initializeDesktopService, desktopDiagnostics } from './desktop-service'
@@ -157,7 +158,7 @@ import {
   startUpdateManager,
   stopUpdateManager
 } from './update/update-manager'
-import { DESKTOP_VERSION_ARGUMENT, type RuntimeSnapshot } from '../shared/contracts'
+import { BAILIAN_TEST_MODEL_ARGUMENT, DESKTOP_VERSION_ARGUMENT, type RuntimeSnapshot } from '../shared/contracts'
 import { resolveHarnessLocale } from './application-locale'
 import { installContextMenu } from './context-menu'
 import {
@@ -230,6 +231,7 @@ let tray: Tray | undefined
 let runtime: HarnessRuntime
 let desktopAutomation: DesktopAutomationService | undefined
 let desktopWps: DesktopWpsService | undefined
+let bailianTestModel: DesktopBailianTestModel | undefined
 let desktopStorageManager: DesktopStorageManager | undefined
 let windowStateManager: WindowStateManager | undefined
 let mobileBridge: LanMobileBridge
@@ -368,20 +370,20 @@ function appendPluginRecoveryDetectionLog(plugins: readonly string[]): void {
   }
 }
 
-function isDevelopmentBuild(): boolean {
-  if (!app.isPackaged) return true
-
+function readDesktopBuildMetadata(): { dshDesktopChannel?: unknown; dshDesktopBailianTest?: unknown } {
   try {
-    const metadata = JSON.parse(
-      readFileSync(join(app.getAppPath(), 'package.json'), 'utf8')
-    ) as { dshDesktopChannel?: unknown }
-    return metadata.dshDesktopChannel === 'development'
+    const metadata: unknown = JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8'))
+    if (metadata && typeof metadata === 'object') return metadata
   } catch {
-    return false
+    // A missing packaged manifest cannot enable a development-only capability.
+    return {}
   }
+  return {}
 }
 
-const developmentBuild = isDevelopmentBuild()
+const desktopBuildMetadata = app.isPackaged ? readDesktopBuildMetadata() : {}
+const developmentBuild = !app.isPackaged || desktopBuildMetadata.dshDesktopChannel === 'development'
+const bailianTestBuild = app.isPackaged && developmentBuild && desktopBuildMetadata.dshDesktopBailianTest === true
 
 /**
  * Record a renderer/GPU process loss in the harness log so the cause survives
@@ -985,7 +987,7 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       preload: join(import.meta.dirname, '../preload/index.cjs'),
-      additionalArguments: [DESKTOP_VERSION_ARGUMENT + app.getVersion()],
+      additionalArguments: [DESKTOP_VERSION_ARGUMENT + app.getVersion(), ...(bailianTestBuild ? [BAILIAN_TEST_MODEL_ARGUMENT] : [])],
       sandbox: true,
       webSecurity: true
     }
@@ -3267,6 +3269,18 @@ async function bootstrap(): Promise<void> {
   desktopAutomation.onStopped = () => desktopWps?.stop()
   await desktopAutomation.start()
   desktopAutomation.registerIpc(assertTrustedMainWindowEvent)
+  if (bailianTestBuild) {
+    const key = await readBailianTestKey(join(process.resourcesPath, 'bailian-test-key.json'))
+    if (key) {
+      const model = new DesktopBailianTestModel(key)
+      try {
+        await model.start()
+        bailianTestModel = model
+      } catch {
+        console.warn('[desktop-model] Bailian internal test bridge could not start')
+      }
+    } else console.warn('[desktop-model] Bailian internal test credential is unavailable')
+  }
   runtime = new HarnessRuntime({
     // A packaged app's stdout may be a closed pipe; only mirror logs in development.
     echoLogs: !app.isPackaged,
@@ -3281,7 +3295,13 @@ async function bootstrap(): Promise<void> {
     // Keep the Harness origin stable across launches. These ports are separate
     // from the production/development mobile bridge ports (43137/43138).
     preferredPort: DEFAULT_HARNESS_PORT + (developmentBuild ? 1 : 0),
-    extraEnvironment: () => ({ ...desktopAutomation?.environment(), ...desktopWps?.environment(), ...huaqingSwitchEnvironment() }),
+    extraEnvironment: () => ({
+      ...desktopAutomation?.environment(),
+      ...desktopWps?.environment(),
+      ...(bailianTestBuild
+        ? bailianTestModel?.environment() ?? { HQHARNESS_MODEL_SOURCE: 'bailian', HQHARNESS_BAILIAN_URL: undefined, HQHARNESS_BAILIAN_TOKEN: undefined }
+        : huaqingSwitchEnvironment())
+    }),
     launchProcess: (executablePath, args, options) =>
       process.platform === 'darwin'
         ? launchDisclaimedUtilityProcess(utilityProcess, args, options, {
@@ -3656,7 +3676,7 @@ if (isDaemonLaunch(process.env, process.platform)) {
       tray = undefined
       repairAgentService?.dispose()
       repairAgentService = undefined
-      void Promise.all([runtime.stop(), mobileBridge?.stop(), desktopAutomation?.close(), desktopWps?.close()]).finally(() => app.quit())
+      void Promise.all([runtime.stop(), mobileBridge?.stop(), desktopAutomation?.close(), desktopWps?.close(), bailianTestModel?.close()]).finally(() => app.quit())
     })
   }
 }

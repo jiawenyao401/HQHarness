@@ -98,6 +98,29 @@ For local unsigned development packages, use the corresponding `package:dev:*` c
 
 After configuring your own release repository and signing credentials, formal release artifacts are built, signed, and published by the tag workflow. The default HQHarness configuration does not have those services or credentials. A local build or pull-request check is not formal release evidence.
 
+### Updating the bundled Huaqing OA CLI
+
+The Desktop pins the upstream `@huaqing/cli` npm distribution and its SHA-256 in [the distribution lock](../packages/huaqing-cli-dist/lock.json). The CLI, its process adapter and its Skills are from the same upstream artifact. Dev, build and test prepare them under `.build/huaqing-cli` using the artifact's npm shrinkwrap and the native platform's Node-API bindings. Preparation runs the staged CLI's `skills export oa-workflow-expense` command to create the reimbursement Skill and its dependencies under `oa-skills/` for Harness. Installers ship the bundle as `resources/huaqing-cli` and use the Desktop Electron runtime.
+
+When the upstream repository is ready to supply a new version, bump its package version and run `npm ci --ignore-scripts`, `npm run check` and `npm pack` there. From this repository run:
+
+```bash
+npm run huaqing-cli:update -- /path/to/huaqing-cli-<version>.tgz
+npm run huaqing-cli:prepare
+```
+
+The import checks the upstream distribution shape, pins the archive unchanged and replaces the previous pin. Review and commit the archive and lock changes together. Build the target-native installers using the commands above. The package gate runs the installed Electron executable in Node mode, loads the bundled Skills, previews an OA expense draft offline and probes the SQLite and keyring bindings. Windows also runs that check against the final signed installation and the unsigned Documents install and upgrade.
+
+### Building the temporary Bailian internal installer
+
+For the internal test only, point `HQHARNESS_BAILIAN_TEST_KEY_FILE` at an absolute path to a local JSON file containing one `apikey` field. Use a native development packaging command with publishing disabled.
+
+```bash
+HQHARNESS_BAILIAN_TEST_KEY_FILE=/absolute/private/key.json npm run package:dev:mac:arm64
+```
+
+Internal artifacts use the `hqharness-bailian-internal` filename prefix. New sessions display `qwen3.8-27b-nvfp4` and send requests to Bailian model ID `qwen3.8-flash`. Only the explicitly marked packaged development build reads the bundled credential. Restrict access to the installer and installed app because recipients can extract the temporary credential. After internal testing, revoke the key in Bailian and remove the credential-bearing installers, unpacked apps and copies. Rebuild with `HQHARNESS_BAILIAN_TEST_KEY_FILE` unset to generate a normal development package.
+
 ## Contribution hygiene
 
 - Never include real API keys in issues, logs, screenshots, fixtures, or test data.

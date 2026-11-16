@@ -1,0 +1,19 @@
+diff --git a/node_modules/@deepseek-ai/dsh-agent-default-model/lib/index.js b/node_modules/@deepseek-ai/dsh-agent-default-model/lib/index.js
+--- a/node_modules/@deepseek-ai/dsh-agent-default-model/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-agent-default-model/lib/index.js
+@@ -36,6 +36,7 @@
+ 	* @returns a detached provider, model, and optional reasoning selection.
+ 	*/
+ 	currentSelection() {
++		if (process.env.HQHARNESS_MODEL_SOURCE === "bailian") return { provider: "hqharness-bailian", model: "qwen3.8-flash" };
+ 		const reasoningEffort = this.config.reasoningEffort.get();
+ 		return selection({
+ 			provider: this.config.provider.get(),
+@@ -51,6 +52,7 @@
+ 	* @returns fulfillment after the optional profile write settles.
+ 	*/
+ 	async saveSelection(next) {
++		if (process.env.HQHARNESS_MODEL_SOURCE === "bailian") return;
+ 		const entry = this.ownerContext.fiber.entry;
+ 		if (entry === void 0) return;
+ 		const editor = this.ctx.get("configEditor");
